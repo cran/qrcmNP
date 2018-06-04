@@ -304,7 +304,7 @@ plot.niqr <- function(x, conf.int=TRUE, which=NULL, ask=TRUE, ...){
       L$ylim <- c(y1,y2)
     }
     plot(p, beta, xlab = L$xlab, ylab = L$ylab[j], main = L$labels[j],
-         type = "l", lwd = L$lwd, xlim = L$xlim, ylim = L$ylim, col = L$col, cex.lab = L$cex.lab, cex.axis = L$cex.axis)
+         type = "l", lwd = L$lwd, xlim = L$xlim, ylim = L$ylim, col = L$col, cex.lab = L$cex.lab, cex.axis = L$cex.axis, axes=L$axes)
     if(conf.int){
       points(p, low, lty = 2, lwd = L$lwd, type = "l", col = L$col, cex.lab = L$cex.lab, cex.axis = L$cex.axis)
       points(p, up, lty = 2, lwd = L$lwd, type = "l", col = L$col, cex.lab = L$cex.lab, cex.axis = L$cex.axis)
@@ -312,6 +312,7 @@ plot.niqr <- function(x, conf.int=TRUE, which=NULL, ask=TRUE, ...){
   }
 
   L <- list(...)
+  if(is.null(L$axes)){L$axes = TRUE}
   if(is.null(L$xlim)){L$xlim = c(0.01,0.99)}
   if(is.null(L$lwd)){L$lwd <- 2}
   if(is.null(L$cex.lab)){L$cex.lab <- 1}
@@ -329,9 +330,9 @@ plot.niqr <- function(x, conf.int=TRUE, which=NULL, ask=TRUE, ...){
   if(!is.null(which) | !ask){
     if(is.null(which)){which <- 1:q}
     nf <- n2mfrow(length(which))
-    par(mfrow=nf)
+    # par(mfrow=nf)
     for(j in which){plot.niqr.int(p,u,j,conf.int,L)}
-    par(mfrow=c(1,1))
+    # par(mfrow=c(1,1))
   }
   else{
     pick <- 1
@@ -688,6 +689,7 @@ start.theta.niqr <- function(fun, fun2, x0, X, y, control=list()){
       colnames(X)[1] <- "(Intercept)"
     }
   }
+  con$n_p <- n
   # p10 <- seq.int(1/1024, 1023/1024, length.out = 1023) #c(0.1^(6:4), p10, 1 - 0.1^(4:6)) #seq(.01, .99, l=100) #(1:49/50)
   xx <- pp <- seq(con$low_p, con$up_p, l=con$n_p)
   npp <- con$n_p
@@ -754,7 +756,7 @@ start.theta.niqr <- function(fun, fun2, x0, X, y, control=list()){
     x <- obj$xn
 
     gpr <- g
-    p.star.y <- obj$p.star.y
+    # p.star.y <- obj$p.star.y
     p.star.y <- bisec(fun, fun2, x, X=X, y=y, n=n)
     f <- obj$fn
     g <- as.matrix(funGrad(fun, fun2, x, y=y, X=X, p.star.y=p.star.y, xx=xx, dx=dx, npp=npp, p0=p0, s=s, ind=ind, h=h, n=n, q=q, n.var=n.var, h1=h1, method=meth,
@@ -791,7 +793,7 @@ niqr <- function(fun, fun2, x0,  X, y, control=list()){
   a1 <- con$a1
   epsilon <- con$epsilon
   tol <- con$tol
-  npp <- con$n_p
+  #npp <- con$n_p
   h1 <- con$h1
   meth <- con$meth
   display <- con$display
@@ -802,6 +804,7 @@ niqr <- function(fun, fun2, x0,  X, y, control=list()){
   q <- ob$internal$q
   n <- ob$internal$n
   xx <- pp <- ob$internal$pp
+  npp <- ob$internal$npp
   dx <- ob$internal$dx
   h <- ob$internal$h
   seqK <- ob$internal$seqK
@@ -867,7 +870,7 @@ niqr <- function(fun, fun2, x0,  X, y, control=list()){
     x <- obj$xn
 
     gpr <- g
-    p.star.y <- obj$p.star.y
+    # p.star.y <- obj$p.star.y
     p.star.y <- bisec(fun, fun2, x, X=X, y=y, n=n)
     f <- obj$fn
     g <- as.matrix(funGrad(fun, fun2, x, y=y, X=X, p.star.y=p.star.y, xx=xx, dx=dx, npp=npp, p0=p0, s=s, ind=ind, h=h, n=n, q=q, n.var=n.var, h1=h1, method=meth,

@@ -70,7 +70,7 @@ qy <- function(p, theta, b, x){rowSums(x * t(theta \%*\% b(p)))}
 y <- qy(runif(n), theta, b, cbind(1, x))
 
 s <- matrix(1, nrow=3, ncol=4); s[1,3:4] <- 0
-obj <- piqr(y ~ x1 + x2, formula.p = ~ I(qnorm(p)) + slp(p, 2), s=s)
+obj <- piqr(y ~ x1 + x2, formula.p = ~ I(qnorm(p)) + slp(p, 2), s=s, nlambda=50)
 
 best <- gof.piqr(obj, method="AIC", plot=FALSE)
 

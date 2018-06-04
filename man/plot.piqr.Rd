@@ -65,7 +65,7 @@ Gianluca Sottile \email{gianluca.sottile@unipa.ot}
      # beta1(p) = log(p)
   y <- qy(runif(n), x) # to generate y, plug uniform p in qy(p,x)
 
-  obj <- piqr(y ~ x, formula.p = ~ slp(p,3))
+  obj <- piqr(y ~ x, formula.p = ~ slp(p,3), nlambda=50)
   best <- gof.piqr(obj, method="BIC", plot=FALSE)
   par(mfrow = c(2,2))
   plot(obj, xvar="norm")

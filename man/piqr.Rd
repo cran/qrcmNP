@@ -8,8 +8,9 @@ This package implements a penalized Frumento and Bottai's (2016) method for quan
 This package fits lasso qrcm using pathwise coordinate descent algorithm.
 }
 \usage{
-piqr(formula, formula.p = ~ slp(p, 1), weights, data, s, nl=70,
-     display=TRUE, tol=1e-6, maxit=100)
+piqr(formula, formula.p = ~ slp(p, 3), weights, data, s, nlambda=100,
+     lambda.min.ratio=ifelse(nobs<nvars, 0.01, 0.0001), lambda,
+     tol=1e-6, maxit=100, display=TRUE)
 }
 \arguments{
   \item{formula}{
@@ -30,8 +31,14 @@ piqr(formula, formula.p = ~ slp(p, 1), weights, data, s, nl=70,
     an optional 0/1 matrix that permits excluding some model coefficients
     (see \sQuote{Examples}).
   }
-  \item{nl}{
-    the number of lambda values - default is 70.
+  \item{nlambda}{
+    the number of lambda values - default is 100.
+  }
+  \item{lambda.min.ratio}{
+    Smallest value for lambda, as a fraction of lambda.max. The default depends on the sample size nobs relative to the number of variables nvars. If nobs > nvars, the default is 0.0001, close to zero. If nobs < nvars, the default is 0.01.
+  }
+  \item{lambda}{
+    A user supplied lambda sequence.
   }
   \item{display}{
     if TRUE something is printed - default is TRUE.
@@ -140,8 +147,8 @@ for summary, plotting, and prediction.
 
   y <- qy(runif(n), theta, b, cbind(1, x))
 
-  s <- matrix(1, nrow=3, ncol=4); s[1,3:4] <- 0
-  obj <- piqr(y ~ x1 + x2, formula.p = ~ I(qnorm(p)) + slp(p, 2), s=s)
+  s <- matrix(1, nrow=3, ncol=4); s[1,3:4] <- 0; s[2:3, 2] <- 0
+  obj <- piqr(y ~ x1 + x2, formula.p = ~ I(qnorm(p)) + slp(p, 2), s=s, nlambda=50)
 
   best <- gof.piqr(obj, method="AIC", plot=FALSE)
   best2 <- gof.piqr(obj, method="BIC", plot=FALSE)
@@ -155,8 +162,7 @@ for summary, plotting, and prediction.
   n <- 1000
   q <- 5
   k <- 3
-  # x <- runif(n)
-  X <- matrix(rnorm(n*q), n, q); X <- scale(X)
+  X <- matrix(abs(rnorm(n*q)), n, q)
   rownames(X) <- 1:n
   colnames(X) <- paste0("X", 1:q)
   theta <- matrix(c(3, 1.5, 1, 1,
@@ -183,15 +189,16 @@ for summary, plotting, and prediction.
 
   set.seed(1234)
   n <- 1000
-  q <- 5
+  q <- 6
   k <- 4
   # x <- runif(n)
-  X <- matrix(rnorm(n*q), n, q); X <- scale(X)
+  X <- matrix(abs(rnorm(n*q)), n, q)
   rownames(X) <- 1:n
   colnames(X) <- paste0("X", 1:q)
   theta <- matrix(c(1, 2, 0, 0, 0,
                     2, 0, 1, 0, 0,
                     0, 0, 0, 0, 0,
+                    1, 0, 0, 1, -1.2,
                     0, 0, 0, 0, 0,
                     1.5, 0, .5, 0, 0,
                     0, 0, 0, 0, 0),
@@ -203,7 +210,8 @@ for summary, plotting, and prediction.
 
   pp <- runif(n)
   y <- Q(p=pp, theta=theta, B=B, k=k, X=cbind(1, X))
-  s <- matrix(1, q+1, k+1); s[2:(q+1), 2] <- 0; s[1, 3:(k+1)] <- 0
+  s <- matrix(1, q+1, k+1); s[2:(q+1), 2] <- 0; s[1, 3:(k+1)] <- 0; s[2:3, 4:5] <- 0
+  s[4:5, 3] <- 0; s[6:7, 4:5] <- 0
   m2 <- piqr(y ~ X, formula.p = ~ qnorm(p) + p + I(log(p)) + I(log(1-p)), s=s)
   best1 <- gof.piqr(m2, method="AIC", plot=FALSE)
   best2 <- gof.piqr(m2, method="BIC", plot=FALSE)

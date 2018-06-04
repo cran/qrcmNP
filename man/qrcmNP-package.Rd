@@ -12,8 +12,8 @@ This package also implements a penalized Frumento and Bottai's (2015) method for
 \tabular{ll}{
 Package: \tab qrcmNP\cr
 Type: \tab Package\cr
-Version: \tab 0.1.0\cr
-Date: \tab 2017-09-22\cr
+Version: \tab 0.1.2\cr
+Date: \tab 2018-06-04\cr
 License: \tab GPL-2\cr
 }
 The function \code{\link{niqr}} permits specifying nonlinear basis for each variables. The function \code{\link{test.fit.niqr}} permits to do goodness of fit.
@@ -60,7 +60,7 @@ qy <- function(p, theta, b, x){rowSums(x * t(theta \%*\% b(p)))}
 y <- qy(runif(n), theta, b, cbind(1, x))
 
 s <- matrix(1, nrow=3, ncol=4); s[1,3:4] <- 0
-obj <- piqr(y ~ x1 + x2, formula.p = ~ I(qnorm(p)) + slp(p, 2), s=s)
+obj <- piqr(y ~ x1 + x2, formula.p = ~ I(qnorm(p)) + slp(p, 2), s=s, nlambda=50)
 
 best <- gof.piqr(obj, method="AIC", plot=FALSE)
 best2 <- gof.piqr(obj, method="BIC", plot=FALSE)

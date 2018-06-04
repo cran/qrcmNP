@@ -9,8 +9,9 @@
 pmax0 <- function(x){(x + abs(x))/2}
 
 #' @export
-piqr <- function(formula, formula.p = ~ slp(p, 1), weights, data, s, nl=70,
-                 display=TRUE, tol=1e-6, maxit=100){
+piqr <- function(formula, formula.p = ~ slp(p, 3), weights, data, s, nlambda=100,
+                 lambda.min.ratio=ifelse(nobs<nvars, 0.01, 0.0001), lambda,
+                 tol=1e-6, maxit=100, display=TRUE){
 
   p.bisec.internal <- getFromNamespace("p.bisec.internal", "qrcm")
   start.theta <- getFromNamespace("start.theta", "qrcm")
@@ -22,14 +23,16 @@ piqr <- function(formula, formula.p = ~ slp(p, 1), weights, data, s, nl=70,
   mf$drop.unused.levels <- TRUE
   mf[[1L]] <- as.name("model.frame")
   mf <- eval(mf, parent.frame())
+  sdY <- sd(model.response(mf))
+  # mf[,1] <- mf[,1]/sdY
 
   A <- check.in.2(mf, formula.p, s)
   type <- A$type
   X <- A$U$X
   y <- A$U$y
   V <- A$V
-  n <- nrow(X)
-  p <- ncol(X)
+  nobs <- n <- nrow(X)
+  nvars <- p <- ncol(X)
   bfun <- A$internal.bfun
   attributes(A$bfun) <- c(attributes(A$bfun), A$stats.B)
   s <- A$s
@@ -37,11 +40,9 @@ piqr <- function(formula, formula.p = ~ slp(p, 1), weights, data, s, nl=70,
   intercept <- A$stats.X$intercept
   if(intercept) s_int <- matrix(as.integer(s[1, ]), nrow=1)
   if(missing(data)) data <- data.frame(X=X, y=y)
+  df <- il <- minimum <- dl <- beta <- NULL
 
-  covar <- seqS <- list()
-  if(type == "iqr") minimum <- vector("double", length=nl) else minimum <- rep(NA, nl)
-  beta <- matrix(0, nrow=p*k, ncol=nl)
-  dl <- matrix(0, p*k, nl)
+  coefficients <- covar <- seqS <- list()
   flag <- TRUE
 
   theta0 <- start.theta(V$y, V$z, V$d, V$X, V$weights, bfun,
@@ -54,7 +55,7 @@ piqr <- function(formula, formula.p = ~ slp(p, 1), weights, data, s, nl=70,
     else{ee <- pctiqr.ee}
 
     oIQR <- NULL
-    if(type == "iqr") minimum[1] <- NaN
+    # if(type == "iqr") minimum[1] <- NaN
     seqS[[1]] <- theta <- matrix(0, nrow=p, ncol=k)
     covar[[1]] <- matrix(0, nrow=p*k, ncol=p*k)
     p.star.y <- p.bisec.internal(theta, V$y, V$X, bfun$bp)
@@ -65,70 +66,175 @@ piqr <- function(formula, formula.p = ~ slp(p, 1), weights, data, s, nl=70,
     seqS[[1]] <- A$s <- matrix(c(s_int, rep(0, (p-1)*k)), ncol=k, byrow=T)
     Theta0[A$s==1] <- theta0[A$s==1]
     oIQR <- piqr.internal(mf=mf, cl=cl, formula.p=formula.p, tol=tol, maxit=maxit,
-                          segno=1, lambda=0, check=FALSE, A=A, s=seqS[[1]], st.theta=FALSE, theta0=Theta0)
-    if(type == "iqr") minimum[1] <- oIQR$obj.function
-    beta[, 1] <- c(oIQR$coefficients)
+                          segno=1, lambda=0, check=FALSE, A=A, s=seqS[[1]], st.theta=TRUE,
+                          theta0=Theta0)
+    if(type == "iqr") minimum <- c(minimum, oIQR$obj.function)
+    beta <- cbind(beta, c(oIQR$coefficients))
+    coefficients[[1]] <- oIQR$coefficients
     covar[[1]] <- oIQR$covar
     grad <- attributes(oIQR$mf)$grad
     grad[!s] <- 0
   }
+  dimnames(seqS[[1]]) <- list(A$stats.X$coef.names, A$stats.B$coef.names)
+  df <- c(df, sum(seqS[[1]]))
+  dl <- cbind(dl, grad)
+  GRAD <- matrix(grad, p, k)
+  segno <- ifelse(GRAD >= 0, 1, -1)
+  temp <- rowSums(abs(GRAD))
+  percent <- abs(GRAD)/temp
+  if(missing(lambda)){
+    l <- max(temp)
+    il <- c(il, which.max(temp))
+    lmin <- lambda.min.ratio * l
+    lratio <- exp((log(l[1]) - log(lmin)) / (nlambda - 1))
+    for(i in 2:nlambda) l <- append(l, l[i-1] / lratio)
+  }else{
+    l <- lambda
+    nlambda <- length(l)
+    il <- c(il, which(temp >= l[1]))
+  }
 
   np <- 1
-
-  dl[, np] <- grad
-  segno <- ifelse(dl[, np] >= 0, 1, -1)
-
-  l <- max(abs(dl[, np]))
-  lmin <- 1e-4 * l
-  lratio <- exp((log(l[1]) - log(lmin)) / (nl - 1))
-  for(i in 2:nl) l <- append(l, l[i-1] / lratio)
-
   al <- l[np]
-  AA <- ifelse(abs(dl[, 1]) >= al, TRUE, FALSE)
-  if(intercept) AA[seq(1, (p*k), by=p)] <- as.logical(s_int)
 
-  if(display) cat("\n Iter=",np," lambda=",round(al,8),sep="")
+  .AA <- matrix(FALSE, p, k)
+  for(.i in 1:length(il)) .AA[il[.i], s[il[.i], ] == 1] <- TRUE
+  if(intercept) .AA[1, ] <- c(s_int) == 1
+
+  # dl <- cbind(dl, grad)
+  # dl[, np] <- grad
+  # segno <- ifelse(dl[, np] >= 0, 1, -1)
+
+
+  # l <- max(abs(dl[, np]))
+  # .AA <- matrix(abs(dl[, np]), p, k)
+  # l <- max(.AA)
+  # lmin <- 1e-4 * l
+  # lratio <- exp((log(l[1]) - log(lmin)) / (nl - 1))
+  # for(i in 2:nl) l <- append(l, l[i-1] / lratio)
+
+  # al <- l[np]
+  # .AA <- (.AA >= al)
+  # .AA[.ind, s[.ind, ] == 1] <- TRUE
+  # if(intercept) .AA[1, ] <- c(s_int) == 1
+  # AA <- c(.AA)
+  # AA <- ifelse(abs(dl[, 1]) >= al, TRUE, FALSE)
+  # if(intercept) AA[seq(1, (p*k), by=p)] <- as.logical(s_int)
+  if(nlambda != 1){
+    if(display) cat("\n Iter = ", formatC(np, format="d", width=3, digits=0),
+                    "   lambda = ", formatC(round(al,8), format="f", width=10, digits=5),
+                    "   obj.function = ", formatC(minimum[1], format="f", width=9, digits=2),
+                    "   df = ", formatC(df[1], format="d", width=3, digits=0), sep="")
+  }else{
+    l <- c(NA, l)
+    al <- l[1]
+    if(display) cat("\n Iter = ", formatC(np, format="d", width=3, digits=0),
+                    "   lambda = ", formatC(round(al,8), format="f", width=10, digits=5),
+                    "   obj.function = ", formatC(minimum[1], format="f", width=9, digits=2),
+                    "   df = ", formatC(df[1], format="d", width=3, digits=0), sep="")
+  }
   for(kk in 1:10000){
-    if(flag){
-      # print(max(abs(dl[, np])) - al)
-      # if((max(abs(dl[, np])) - al) >= 1e-1) break
-
-      np <- np + 1
-      if(np > nl){np <- np-1;break}
-      al <- l[np]
-      flag <- TRUE
-      if(display) cat("\n Iter=",np," lambda=",round(al,8),sep="")
+    if(nlambda != 1){
+      if(flag){
+        np <- np + 1
+        if(np > nlambda){np <- np-1;break}
+        al <- l[np]
+        flag <- TRUE
+      }else{
+        flag <- TRUE
+        dl <- dl[, -np]
+        beta <- beta[, -np]
+        minimum <- minimum[-np]
+        df <- df[-np]
+        coefficients <- coefficients[-np]
+      }
     }else{
+      np <- np + 1
+      if(np > (nlambda+1)){np <- np-1;break}
+      al <- l[np]
       flag <- TRUE
     }
 
-    seqS[[np]] <- A$s <- matrix(as.integer(AA), ncol=k)
-    Theta0[A$s==1] <- theta0[A$s==1]
+    # seqS[[np]] <- A$s <- matrix(as.integer(AA), ncol=k)
+    seqS[[np]] <- A$s <- 1*.AA
+    dimnames(seqS[[np]]) <- list(A$stats.X$coef.names, A$stats.B$coef.names)
+    df <- c(df, sum(seqS[[np]]))
+    # Theta0[A$s==1] <- theta0[A$s==1]
+    Theta0[.AA] <- theta0[.AA]
     tempSegno <- A$s*segno
-    if(intercept) tempSegno[1, ] <- rep(0, k)
+    if(intercept) tempSegno[1, ] <- 0 #rep(0, k)
+    Lambda <- al*percent
 
     oIQR <- try(piqr.internal(mf=mf, cl=cl, formula.p=formula.p, tol=tol, maxit=maxit,
-                              segno=tempSegno, lambda=al, check=FALSE, A=A, s=seqS[[np]], st.theta=FALSE, theta0=Theta0), silent = TRUE)
+                              segno=tempSegno, lambda=Lambda, check=FALSE, A=A, s=seqS[[np]],
+                              st.theta=TRUE, theta0=Theta0), silent = TRUE)
     if(class(oIQR) == "try-error"){np <- np-1; break}
 
-    if(type == "iqr") minimum[np] <- oIQR$obj.function
-    beta[, np] <- c(oIQR$coefficients)
+    if(type == "iqr") minimum <- c(minimum, oIQR$obj.function)
+    coefficients[[np]] <- oIQR$coefficients
+    beta <- cbind(beta, c(oIQR$coefficients))
+
+    # beta[, np] <- c(oIQR$coefficients)
     covar[[np]] <- oIQR$covar
     grad <- attributes(oIQR$mf)$grad
     grad[!s] <- 0
+    dl <- cbind(dl, grad)
+    GRAD <- matrix(grad, p, k)
+    segno2 <- ifelse(GRAD >= 0, 1, -1)
+    temp <- rowSums(abs(GRAD))
+    percent <- abs(GRAD)/temp
 
-    dl[, np] <- grad
+    # dl[, np] <- grad
+    if(nlambda != 1){
+      # if(all(A$s == s) & (max(abs(dl[, np])) < (min(l)*10))) break
+      # if(max(abs(dl[, np])) < (min(l)*10)) break
 
-    if(all(A$s == s) & (max(abs(dl[, np])) < (min(l)*10))) break
-
-    for(m in 1:(p*k)){
-      if(!AA[m]){
-        if(abs(dl[m, np]) >= al){
-          flag <- FALSE
-          AA[m] <- TRUE
-          segno[m] <- ifelse(dl[m, np] >= 0, 1, -1)
+      .temp <- temp
+      .aa <- c(.AA[,1])
+      for(m in 1:p){
+        if(!.aa[m]){
+          if(abs(.temp[m]) >= al){
+            flag <- FALSE
+            il <- c(il, m)
+            .AA[m, ] <- (s[m, ] == 1)
+            # .aa[m] <- TRUE
+            segno[m, ] <- segno2[m, ]
+          }
         }
       }
+    }
+
+    # .AA <- matrix(FALSE, p, k)
+    # if(intercept) .AA[1, ] <- c(s_int) == 1
+
+    # .temp <- dl[, np]
+    # .aa <- c(.AA)
+    # for(m in 1:(p*k)){
+    #   if(!.aa[m]){
+    #     if(abs(.temp[m]) >= al){
+    #       flag <- FALSE
+    #       .aa[m] <- TRUE
+    #       segno[m] <- ifelse(.temp[m] >= 0, 1, -1)
+    #     }
+    #   }
+    #   .AA <- matrix(.aa, p, k)
+    # }
+
+    # for(m in 1:(p*k)){
+    #   if(!AA[m]){
+    #     if(abs(dl[m, np]) >= al){
+    #       flag <- FALSE
+    #       AA[m] <- TRUE
+    #       segno[m] <- ifelse(dl[m, np] >= 0, 1, -1)
+    #     }
+    #   }
+    # }
+
+    if(flag & display){
+      cat("\n Iter = ", formatC(np, format="d", width=3, digits=0),
+          "   lambda = ", formatC(round(al, 8), format="f", width=10, digits=5),
+          "   obj.function = ", formatC(minimum[np], format="f", width=9, digits=2),
+          "   df = ", formatC(sum(seqS[[np]]), format="d", width=3, digits=0), sep="")
     }
   }
 
@@ -137,28 +243,33 @@ piqr <- function(formula, formula.p = ~ slp(p, 1), weights, data, s, nl=70,
   attr(mf, "all.vars") <- A$V
   attr(mf, "bfun") <- A$bfun
   attr(mf, "type") <- type
+  # browser()
 
-  # df <- apply(beta[, 1:np], 2, function(.x) length(which(.x != 0)))
-  df_max <- apply(s, 1, sum)
-  df <- vector(length=np)
-  se <- coefficients <- list()
-  for(i in 1:np){
-    dimnames(seqS[[i]]) <- list(A$stats.X$coef.names, A$stats.B$coef.names)
-    coefficients[[i]] <- matrix(beta[, i], ncol=k, dimnames=list(A$stats.X$coef.names, A$stats.B$coef.names))
-    # df[i] <- length(which(beta[, i] != 0))
-    df[i] <- sum(apply(coefficients[[i]], 1, function(.x) sum(I(.x != 0)))/df_max)
+  if(nlambda == 1){
+    np <- 1
+    dl <- dl[, -np]
+    beta <- beta[, -np]
+    minimum <- minimum[-np]
+    df <- df[-np]
+    coefficients <- coefficients[-np]
+    covar <- covar[-np]
+    seqS <- seqS[-np]
+    l <- l[-np]
   }
 
   fit <- list(call=cl, lambda=l[1:np], coefficients=coefficients, covar=covar,
-              obj.function=minimum[1:np], dl=dl[, 1:np], df=round(df, 3), seqS=seqS)
-  fit$internal <- list(mf=mf, formula=formula, data=data, formula.p=formula.p, nlambda=np, X=X, y=y, k=k, intercept=intercept, type=type)
+              obj.function=minimum, dl=dl, df=round(df, 3), seqS=seqS)
+  fit$internal <- list(mf=mf, formula=formula, data=data, formula.p=formula.p, nlambda=np,
+                       X=X, y=y, k=k, intercept=intercept, type=type)
+  attr(fit$internal$y, "sd") <- sdY
 
   class(fit) <- "piqr"
   return(fit)
 }
 
 #' @export
-gof.piqr <- function(object, method=c("AIC","BIC","GIC","GCV","NIC"), plot=TRUE, ...){
+gof.piqr <- function(object, method=c("BIC","AIC"), Cn="1", plot=TRUE, df.new=TRUE, logi=TRUE, ...){
+  # method=c("AIC","BIC","GIC","GCV")
   cl <- match.call()
 
   method <- match.arg(method)
@@ -169,30 +280,31 @@ gof.piqr <- function(object, method=c("AIC","BIC","GIC","GCV","NIC"), plot=TRUE,
   y <- object$internal$y
 
   intercept <- object$internal$intercept
-
   n <- dim(X)[1]
   p <- dim(X)[2]
   k <- object$internal$k
-  df <- object$df
+  df <- if(!df.new) object$df else unlist(lapply(object$seqS, function(.x) sum(rowSums(.x) > 0)))
+  # df <- if(!df.new) object$df else round(rowSums(object$df2, na.rm=TRUE), 3)#object$df2
   beta <- object$coefficients
   obj.function <- object$obj.function
 
-  if(method == "NIC"){
-    if(intercept){
-      dfDen <- df - length(which(beta[[nl]][1, ] != 0))
-      Den <- sapply(1:nl, function(.i) sum(abs(beta[[.i]][-1, ])))
-    }else{
-      dfDen <- df
-      Den <- sapply(1:nl, function(.i) sum(abs(beta[[.i]])))
-    }
-  }
+  Cn <- eval(parse(text = Cn))
 
-  curve <- switch(method,
-                  "AIC"=log(obj.function) + df/n,
-                  "BIC"=log(obj.function) + log(n)*df/(2*n),
-                  "GIC"=log(obj.function) + log(log(n))*log(p)*df/(2*n),
-                  "GCV"=log(obj.function)/((n - df)^2),
-                  "NIC"=sqrt(obj.function)/(Den/dfDen))
+  if(logi){
+    curve <- switch(method,
+                    # "AIC"=log(obj.function) + df/n,
+                    # "BIC"=log(obj.function) + log(n)*df/(2*n)*Cn)#,
+                    "AIC"=log(obj.function) + 2*df/n,
+                    "BIC"=log(obj.function) + log(n)*df/n*Cn)#,
+                    # "GIC"=log(obj.function) + log(log(n))*log(p)*df/(2*n),
+                    # "GCV"=log(obj.function)/((n - df)^2))
+  }else{
+    curve <- switch(method,
+                    "AIC"=obj.function + 2*df,
+                    "BIC"=obj.function + log(n)*df*Cn)#,
+    # "GIC"=log(obj.function) + log(log(n))*log(p)*df/(2*n),
+    # "GCV"=log(obj.function)/((n - df)^2))
+  }
 
   posMinLambda <- which.min(curve)
   minLambda <- lambda[posMinLambda]
@@ -256,6 +368,7 @@ piqr.internal <- function(mf, cl, formula.p, tol=1e-6, maxit=100, s,
   try.count <- 0
   eeTol <- 0.5
   eps0 <- 0.1
+  edf <- NULL
 
   while(!fit.ok){
 
@@ -263,6 +376,7 @@ piqr.internal <- function(mf, cl, formula.p, tol=1e-6, maxit=100, s,
 
     fit <- piqr.newton(theta0, V$y, V$z, V$d, V$X, V$Xw,
                       bfun, s = s, type = type, tol = tol, maxit = maxit, safeit = safeit, eps0 = eps0, segno = segno, lambda = lambda)
+    edf <- fit$edf
 
     if(fit.ok <- (fit$rank == ncol(fit$jacobian) & max(abs(fit$ee)) < eeTol)){
       # covar <- try(cov.theta(fit$coefficients, V$y, V$z, V$d, V$X, V$Xw,
@@ -323,7 +437,7 @@ piqr.internal <- function(mf, cl, formula.p, tol=1e-6, maxit=100, s,
   fit <- list(coefficients = out$theta, call = cl,
               converged = fit$converged, n.it = fit$n.it,
               obj.function = fit$obj.function,
-              covar = out$covar, mf = mf, s = s)
+              covar = out$covar, mf = mf, s = s, edf = edf)
   jnames <- c(sapply(attr(A$bfun, "coef.names"),
                      function(x,y){paste(x,y, sep = ":")}, y = S$X$coef.names))
   dimnames(fit$covar) <- list(jnames, jnames)
@@ -709,6 +823,7 @@ piqr.newton <- function(theta, y,z,d,X,Xw, bfun, s, type, tol=1e-6, maxit=100, s
   g <- G$g[s]
   conv <- FALSE
   eps <- eps0
+  edf <- NULL
 
   for(i in 1:safeit){
 
@@ -790,7 +905,9 @@ piqr.newton <- function(theta, y,z,d,X,Xw, bfun, s, type, tol=1e-6, maxit=100, s
     g <- g1
     G <- G1
     theta <- new.theta
-    h <- ee(theta, y,z,d,X,Xw, bfun, p.star.y, p.star.z, J = TRUE, G = G, segno=segno, lambda=lambda)$J[s,s, drop = FALSE]
+    .temp <- ee(theta, y,z,d,X,Xw, bfun, p.star.y, p.star.z, J = TRUE, G = G, segno=segno, lambda=lambda)
+    edf <- .temp$edf
+    h <- .temp$J[s,s, drop = FALSE]
     h <- h + diag(1e-4, nrow(h))
 
     if(i > 1){eps <- min(eps*10,1)}
@@ -811,7 +928,7 @@ piqr.newton <- function(theta, y,z,d,X,Xw, bfun, s, type, tol=1e-6, maxit=100, s
 
   list(coefficients = matrix(theta, q, k),
        converged = (i < maxit), n.it = i, p.star.y = p.star.y, p.star.z = p.star.z, py = py, pz = pz,
-       ee = g, jacobian = h, rank = (alg == "nr")*sum(s), grad=G$g)
+       ee = g, jacobian = h, rank = (alg == "nr")*sum(s), grad=G$g, edf=edf)
 }
 
 piqr.ee <- function(theta, y, z, d, X, Xw, bfun, p.star.y, p.star.z, J=TRUE, G,
@@ -825,11 +942,11 @@ piqr.ee <- function(theta, y, z, d, X, Xw, bfun, p.star.y, p.star.z, J=TRUE, G,
     S1 <- BB1 - B
     if(!i){g <- c(crossprod(Xw,S1) - segno*lambda)}
     else{g <- NULL; for(h in 1:k){g <- cbind(g,X*S1[,h])}
-    if(length(segno) != 1) g <- g - matrix(rep(c(segno)*lambda/n, n), nrow=n, byrow=T)}
+    if(length(segno) != 1) g <- g - matrix(rep(c(segno)*c(lambda)/n, n), nrow=n, byrow=T)}
   }
   else{B <- G$B; g <- G$g}
 
-
+  edf2 <- NULL
   if(J){
     # b <- bfun$bp[p.star.y,, drop = FALSE]
     b1 <- bfun$b1p[p.star.y,, drop = FALSE]
@@ -850,9 +967,13 @@ piqr.ee <- function(theta, y, z, d, X, Xw, bfun, p.star.y, p.star.z, J=TRUE, G,
       }
       J <- rbind(J, h.temp)
     }
+# browser()
+# xtx <- crossprod(Xw, X)
+# edf <- sapply(1:k, function(.i) diag(solve(crossprod(Xw, X * bij[, k*(.i-1)+.i])) %*% xtx))
+# edf2 <- sapply(1:ncol(X), function(.i) mean(edf[.i, ][I(theta[.i,] !=0)], na.rm=TRUE))
   }
 
-  list(g = g, J = J, B = B)
+  list(g = g, J = J, B = B, edf = edf2)
 }
 
 pciqr.ee <- function(theta, y, z, d, X, Xw, bfun, p.star.y, p.star.z, J = TRUE, G,
@@ -1003,7 +1124,11 @@ plot.piqr <- function(x, xvar=c("norm", "lambda", "objective", "grad", "beta"), 
                       ask=TRUE, polygon=TRUE, ...){
   xvar = match.arg(xvar)
   if(xvar == "beta" & missing(lambda)){
-    stop("Please insert a lambda value")
+    if(length(x$lambda) != 1){
+      stop("Please insert a lambda value")
+    }else{
+      lambda <- x$lambda
+    }
   }else{
     if(xvar == "beta" & !missing(lambda)){
       l <- match(lambda, x$lambda)
@@ -1027,7 +1152,7 @@ plot.piqr <- function(x, xvar=c("norm", "lambda", "objective", "grad", "beta"), 
 
     plotCoef(beta, lambda=lambda, df=x$df, dev=x$obj.function, grad=x$dl, label=label, xvar=xvar, ...)
   }else{
-    plot.piqr2(x, lambda, which=which, ask=ask, polygon=polygon, ...)
+    plot.piqr2(x, lambda=lambda, which=which, ask=ask, polygon=polygon, ...)
   }
 }
 
@@ -1071,7 +1196,7 @@ plot.piqr2 <- function(x, lambda, conf.int=TRUE, polygon=TRUE, which=NULL, ask=T
   L$labels <- c(L$labels, "qqplot")
 
   p <- seq.int(max(0.001,L$xlim[1]), min(0.999,L$xlim[2]), length.out = 100)
-  u <- predict.piqr(x, lambda, p=p, type="beta", se=conf.int)
+  u <- predict.piqr(x, lambda=lambda, p=p, type="beta", se=conf.int)
 
   if(!is.null(which) | !ask){
     if(is.null(which)){which <- 1:q}
@@ -1097,7 +1222,13 @@ plot.piqr2 <- function(x, lambda, conf.int=TRUE, polygon=TRUE, which=NULL, ask=T
 
 #' @export
 predict.piqr <- function(object, lambda, type = c("beta", "CDF", "QF", "sim"), newdata, p, se=TRUE, ...){
-  if(missing(lambda)) stop("Please insert a lambda value")
+  if(missing(lambda)){
+    if(length(object$lambda) != 1){
+      stop("Please insert a lambda value")
+    }else{
+      lambda <- object$lambda
+    }
+  }
   l <- match(lambda, object$lambda)
   if(is.na(l)) stop("Lambda value is not correct")
 
@@ -1205,7 +1336,13 @@ predict.piqr <- function(object, lambda, type = c("beta", "CDF", "QF", "sim"), n
 
 #' @export
 summary.piqr <- function(object, lambda, SE=FALSE, p, cov=FALSE, ...){
-  if(missing(lambda)) stop("Please insert a lambda value")
+  if(missing(lambda)){
+    if(length(object$lambda) != 1){
+      stop("Please insert a lambda value")
+    }else{
+      lambda <- object$lambda
+    }
+  }
   l <- match(lambda, object$lambda)
   if(is.na(l)) stop("Lambda value is not correct")
 

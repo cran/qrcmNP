@@ -7,7 +7,7 @@ Goodness of Fit of Penalized Quantile Regression Coefficients Modeling
 Goodness of Fit of an object of class \dQuote{\code{piqr}}, usefull to select the best tuning parameter.
 }
 \usage{
-gof.piqr(object, method=c("AIC","BIC","GIC","GCV","NIC"), plot=TRUE, ...)
+gof.piqr(object, method=c("BIC","AIC"), Cn="1", plot=TRUE, df.new=TRUE, logi=TRUE, ...)
 }
 \arguments{
   \item{object}{
@@ -15,6 +15,15 @@ gof.piqr(object, method=c("AIC","BIC","GIC","GCV","NIC"), plot=TRUE, ...)
 }
   \item{method}{
   a method to evaluate the goodness of fit and select the best value of the tuning parameter.
+}
+\item{Cn}{
+  It is some positive constant that diverges to infinity as n increase. It is used by the BIC criterion and if Cn = 1 the classical BIC is used.
+}
+\item{df.new}{
+  if TRUE degrees of freedom are evaluated as the number of \deqn{\beta_j(p | \theta) != 0,  j = 1,\ldots, q}.
+}
+\item{logi}{
+  if TRUE the loss function is log-transformed.
 }
   \item{plot}{
   if TRUE the chosen method is plotted - default is TRUE.
@@ -24,7 +33,7 @@ gof.piqr(object, method=c("AIC","BIC","GIC","GCV","NIC"), plot=TRUE, ...)
 }
 }
 \details{
-The best value of lambda is chosen minimizing the criterion, i.e. AIC, BIC, GIC, GCV.
+The best value of lambda is chosen minimizing the criterion, i.e., AIC and BIC.
 }
 
 \value{
@@ -58,7 +67,7 @@ qy <- function(p, theta, b, x){rowSums(x * t(theta \%*\% b(p)))}
 y <- qy(runif(n), theta, b, cbind(1, x))
 
 s <- matrix(1, nrow=3, ncol=4); s[1,3:4] <- 0
-obj <- piqr(y ~ x1 + x2, formula.p = ~ I(qnorm(p)) + slp(p, 2), s=s)
+obj <- piqr(y ~ x1 + x2, formula.p = ~ I(qnorm(p)) + slp(p, 2), s=s, nlambda=50)
 
 par(mfrow=c(1,2))
 best <- gof.piqr(obj, method="AIC", plot=TRUE)
