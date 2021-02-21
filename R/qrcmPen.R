@@ -1,5 +1,5 @@
 #' @importFrom stats integrate splinefun model.response model.weights model.matrix terms model.frame delete.response coef
-#' @importFrom stats approxfun sd prcomp approx predict .getXlevels runif printCoefmat pnorm qexp pbeta qbeta pchisq
+#' @importFrom stats approxfun sd prcomp approx predict .getXlevels runif printCoefmat pnorm qexp pbeta qbeta pchisq nobs
 #' @importFrom survival Surv survfit coxph
 #' @importFrom grDevices adjustcolor gray.colors
 #' @importFrom graphics plot abline axis matplot text points
@@ -9,12 +9,12 @@
 pmax0 <- function(x){(x + abs(x))/2}
 
 #' @export
-piqr <- function(formula, formula.p = ~ slp(p, 3), weights, data, s, nlambda=100,
-                 lambda.min.ratio=ifelse(nobs<nvars, 0.01, 0.0001), lambda,
-                 tol=1e-6, maxit=100, display=TRUE){
+piqr <- function(formula, formula.p = ~ slp(p, 3), weights, data, s, nlambda = 100,
+                 lambda.min.ratio = ifelse(nobs<nvars, 0.01, 0.0001), lambda,
+                 tol = 1e-6, maxit = 100, display = TRUE){
 
   p.bisec.internal <- getFromNamespace("p.bisec.internal", "qrcm")
-  start.theta <- getFromNamespace("start.theta", "qrcm")
+  start.theta <- getFromNamespace("start.iqr", "qrcm")
 
   cl <- match.call()
   mf <- match.call(expand.dots = FALSE)
@@ -45,10 +45,13 @@ piqr <- function(formula, formula.p = ~ slp(p, 3), weights, data, s, nlambda=100
   coefficients <- covar <- seqS <- list()
   flag <- TRUE
 
-  theta0 <- start.theta(V$y, V$z, V$d, V$X, V$weights, bfun,
-                        df = max(5, min(15, round(n/30/(q + 1)))), yy=NULL, zz=NULL, s=s)
+  # trans <- getFromNamespace("trans", "qrcm")
+  # Ty <- trans(V$z, V$y, V$d, V$weights, type)
+  # yy <- Ty$f(V$y)
+  # zz <- (if(type == "ctiqr") Ty$f(V$z) else V$z)
+  # theta0 <- start.theta(V$y, V$z, V$d, V$X, V$weights, bfun,
+  #                       df = max(5, min(15, round(n/30/(p + 1)))), yy=yy, zz=zz, s=s)
   Theta0 <- matrix(0, ncol=k, nrow=p)
-
   if(!intercept){
     if(type == "iqr"){ee <- piqr.ee}
     else if(type == "ciqr"){ee <- pciqr.ee}
@@ -56,18 +59,19 @@ piqr <- function(formula, formula.p = ~ slp(p, 3), weights, data, s, nlambda=100
 
     oIQR <- NULL
     # if(type == "iqr") minimum[1] <- NaN
-    seqS[[1]] <- theta <- matrix(0, nrow=p, ncol=k)
+    seqS[[1]] <- matrix(0, nrow=p, ncol=k)
     covar[[1]] <- matrix(0, nrow=p*k, ncol=p*k)
-    p.star.y <- p.bisec.internal(theta, V$y, V$X, bfun$bp)
+    p.star.y <- p.bisec.internal(Theta0, V$y, V$X, bfun$bp)
     p.star.z <-  NULL
-    grad <- ee(theta0, V$y, V$z, V$d, V$X, V$Xw, bfun, p.star.y, p.star.z, J=F, segno=1, lambda=0)$g
+    grad <- ee(Theta0, V$y, V$z, V$d, V$X, V$Xw, bfun, p.star.y, p.star.z, J=F, segno=1, lambda=0)$g
     grad[!s] <- 0
-  }else{
+  }
+  else{
     seqS[[1]] <- A$s <- matrix(c(s_int, rep(0, (p-1)*k)), ncol=k, byrow=T)
-    Theta0[A$s==1] <- theta0[A$s==1]
+    # Theta0[seqS[[1]] == 1] <- theta0[seqS[[1]] == 1]
     oIQR <- piqr.internal(mf=mf, cl=cl, formula.p=formula.p, tol=tol, maxit=maxit,
                           segno=1, lambda=0, check=FALSE, A=A, s=seqS[[1]], st.theta=TRUE,
-                          theta0=Theta0)
+                          theta0 = Theta0)
     if(type == "iqr") minimum <- c(minimum, oIQR$obj.function)
     beta <- cbind(beta, c(oIQR$coefficients))
     coefficients[[1]] <- oIQR$coefficients
@@ -76,10 +80,10 @@ piqr <- function(formula, formula.p = ~ slp(p, 3), weights, data, s, nlambda=100
     grad[!s] <- 0
   }
   dimnames(seqS[[1]]) <- list(A$stats.X$coef.names, A$stats.B$coef.names)
-  df <- c(df, sum(seqS[[1]]))
+  df <- c(df, sum(apply(seqS[[1]], 1, function(x) any(x == 1))))
   dl <- cbind(dl, grad)
   GRAD <- matrix(grad, p, k)
-  segno <- ifelse(GRAD >= 0, 1, -1)
+  segno <- sign(GRAD) #ifelse(GRAD >= 0, 1, -1)
   temp <- rowSums(abs(GRAD))
   percent <- abs(GRAD)/temp
   if(missing(lambda)){
@@ -88,7 +92,8 @@ piqr <- function(formula, formula.p = ~ slp(p, 3), weights, data, s, nlambda=100
     lmin <- lambda.min.ratio * l
     lratio <- exp((log(l[1]) - log(lmin)) / (nlambda - 1))
     for(i in 2:nlambda) l <- append(l, l[i-1] / lratio)
-  }else{
+  }
+  else{
     l <- lambda
     nlambda <- length(l)
     il <- c(il, which(temp >= l[1]))
@@ -98,49 +103,29 @@ piqr <- function(formula, formula.p = ~ slp(p, 3), weights, data, s, nlambda=100
   al <- l[np]
 
   .AA <- matrix(FALSE, p, k)
-  for(.i in 1:length(il)) .AA[il[.i], s[il[.i], ] == 1] <- TRUE
+  for(.i in il) .AA[.i, s[.i, ] == 1] <- TRUE
   if(intercept) .AA[1, ] <- c(s_int) == 1
 
-  # dl <- cbind(dl, grad)
-  # dl[, np] <- grad
-  # segno <- ifelse(dl[, np] >= 0, 1, -1)
-
-
-  # l <- max(abs(dl[, np]))
-  # .AA <- matrix(abs(dl[, np]), p, k)
-  # l <- max(.AA)
-  # lmin <- 1e-4 * l
-  # lratio <- exp((log(l[1]) - log(lmin)) / (nl - 1))
-  # for(i in 2:nl) l <- append(l, l[i-1] / lratio)
-
-  # al <- l[np]
-  # .AA <- (.AA >= al)
-  # .AA[.ind, s[.ind, ] == 1] <- TRUE
-  # if(intercept) .AA[1, ] <- c(s_int) == 1
-  # AA <- c(.AA)
-  # AA <- ifelse(abs(dl[, 1]) >= al, TRUE, FALSE)
-  # if(intercept) AA[seq(1, (p*k), by=p)] <- as.logical(s_int)
-  if(nlambda != 1){
-    if(display) cat("\n Iter = ", formatC(np, format="d", width=3, digits=0),
-                    "   lambda = ", formatC(round(al,8), format="f", width=10, digits=5),
-                    "   obj.function = ", formatC(minimum[1], format="f", width=9, digits=2),
-                    "   df = ", formatC(df[1], format="d", width=3, digits=0), sep="")
-  }else{
-    l <- c(NA, l)
-    al <- l[1]
+  if(nlambda == 1) {
+    df <- il <- minimum <- dl <- beta <- NULL
+    coefficients <- covar <- seqS <- list()
+  }
+  else{
     if(display) cat("\n Iter = ", formatC(np, format="d", width=3, digits=0),
                     "   lambda = ", formatC(round(al,8), format="f", width=10, digits=5),
                     "   obj.function = ", formatC(minimum[1], format="f", width=9, digits=2),
                     "   df = ", formatC(df[1], format="d", width=3, digits=0), sep="")
   }
+
   for(kk in 1:10000){
     if(nlambda != 1){
       if(flag){
         np <- np + 1
-        if(np > nlambda){np <- np-1;break}
+        if(np > nlambda){np <- np-1; break}
         al <- l[np]
         flag <- TRUE
-      }else{
+      }
+      else{
         flag <- TRUE
         dl <- dl[, -np]
         beta <- beta[, -np]
@@ -148,47 +133,40 @@ piqr <- function(formula, formula.p = ~ slp(p, 3), weights, data, s, nlambda=100
         df <- df[-np]
         coefficients <- coefficients[-np]
       }
-    }else{
-      np <- np + 1
-      if(np > (nlambda+1)){np <- np-1;break}
-      al <- l[np]
+    }
+    else{
       flag <- TRUE
+      if(kk > 1) break
     }
 
-    # seqS[[np]] <- A$s <- matrix(as.integer(AA), ncol=k)
     seqS[[np]] <- A$s <- 1*.AA
     dimnames(seqS[[np]]) <- list(A$stats.X$coef.names, A$stats.B$coef.names)
-    df <- c(df, sum(seqS[[np]]))
-    # Theta0[A$s==1] <- theta0[A$s==1]
-    Theta0[.AA] <- theta0[.AA]
-    tempSegno <- A$s*segno
-    if(intercept) tempSegno[1, ] <- 0 #rep(0, k)
+    df <- c(df, sum(apply(seqS[[np]], 1, function(x) any(x == 1))))
+    # Theta0[.AA] <- theta0[.AA]
+    tempSegno <- seqS[[np]]*segno
+    if(intercept) tempSegno[1, ] <- 0
     Lambda <- al*percent
+    # Theta0[seqS[[np]] == 1] <- theta0[seqS[[np]] == 1]
 
     oIQR <- try(piqr.internal(mf=mf, cl=cl, formula.p=formula.p, tol=tol, maxit=maxit,
                               segno=tempSegno, lambda=Lambda, check=FALSE, A=A, s=seqS[[np]],
                               st.theta=TRUE, theta0=Theta0), silent = TRUE)
-    if(class(oIQR) == "try-error"){np <- np-1; break}
+    if(inherits(oIQR, "try-error")){np <- np-1; break}
 
-    if(type == "iqr") minimum <- c(minimum, oIQR$obj.function)
+    if(type == "iqr") minimum[np] <- oIQR$obj.function
     coefficients[[np]] <- oIQR$coefficients
     beta <- cbind(beta, c(oIQR$coefficients))
 
-    # beta[, np] <- c(oIQR$coefficients)
     covar[[np]] <- oIQR$covar
     grad <- attributes(oIQR$mf)$grad
     grad[!s] <- 0
     dl <- cbind(dl, grad)
     GRAD <- matrix(grad, p, k)
-    segno2 <- ifelse(GRAD >= 0, 1, -1)
+    segno2 <- sign(GRAD)
     temp <- rowSums(abs(GRAD))
     percent <- abs(GRAD)/temp
 
-    # dl[, np] <- grad
     if(nlambda != 1){
-      # if(all(A$s == s) & (max(abs(dl[, np])) < (min(l)*10))) break
-      # if(max(abs(dl[, np])) < (min(l)*10)) break
-
       .temp <- temp
       .aa <- c(.AA[,1])
       for(m in 1:p){
@@ -204,37 +182,11 @@ piqr <- function(formula, formula.p = ~ slp(p, 3), weights, data, s, nlambda=100
       }
     }
 
-    # .AA <- matrix(FALSE, p, k)
-    # if(intercept) .AA[1, ] <- c(s_int) == 1
-
-    # .temp <- dl[, np]
-    # .aa <- c(.AA)
-    # for(m in 1:(p*k)){
-    #   if(!.aa[m]){
-    #     if(abs(.temp[m]) >= al){
-    #       flag <- FALSE
-    #       .aa[m] <- TRUE
-    #       segno[m] <- ifelse(.temp[m] >= 0, 1, -1)
-    #     }
-    #   }
-    #   .AA <- matrix(.aa, p, k)
-    # }
-
-    # for(m in 1:(p*k)){
-    #   if(!AA[m]){
-    #     if(abs(dl[m, np]) >= al){
-    #       flag <- FALSE
-    #       AA[m] <- TRUE
-    #       segno[m] <- ifelse(dl[m, np] >= 0, 1, -1)
-    #     }
-    #   }
-    # }
-
     if(flag & display){
       cat("\n Iter = ", formatC(np, format="d", width=3, digits=0),
           "   lambda = ", formatC(round(al, 8), format="f", width=10, digits=5),
           "   obj.function = ", formatC(minimum[np], format="f", width=9, digits=2),
-          "   df = ", formatC(sum(seqS[[np]]), format="d", width=3, digits=0), sep="")
+          "   df = ", formatC(df[np], format="d", width=3, digits=0), sep="")
     }
   }
 
@@ -245,20 +197,13 @@ piqr <- function(formula, formula.p = ~ slp(p, 3), weights, data, s, nlambda=100
   attr(mf, "type") <- type
   # browser()
 
-  if(nlambda == 1){
-    np <- 1
-    dl <- dl[, -np]
-    beta <- beta[, -np]
-    minimum <- minimum[-np]
-    df <- df[-np]
-    coefficients <- coefficients[-np]
-    covar <- covar[-np]
-    seqS <- seqS[-np]
-    l <- l[-np]
-  }
+  dl <- apply(dl, 2, function(x) rowSums(abs(matrix(x, p, k))))
+  rownames(dl) <- A$stats.X$coef.names
+  names(coefficients) <- names(covar) <- colnames(dl) <- names(seqS) <- paste0("lambda", 1:np)
+  # if(nlambda == 1){dl <- dl[, -np]}
 
   fit <- list(call=cl, lambda=l[1:np], coefficients=coefficients, covar=covar,
-              obj.function=minimum, dl=dl, df=round(df, 3), seqS=seqS)
+              obj.function=minimum, dl=dl, df=round(df[1:np], 3), seqS=seqS)
   fit$internal <- list(mf=mf, formula=formula, data=data, formula.p=formula.p, nlambda=np,
                        X=X, y=y, k=k, intercept=intercept, type=type)
   attr(fit$internal$y, "sd") <- sdY
@@ -328,15 +273,15 @@ gof.piqr <- function(object, method=c("BIC","AIC"), Cn="1", plot=TRUE, df.new=TR
 piqr.internal <- function(mf, cl, formula.p, tol=1e-6, maxit=100, s,
                           segno=1, lambda=0, check=FALSE, A, st.theta=FALSE, theta0){
 
-  start.theta <- getFromNamespace("start.theta", "qrcm")
+  start.theta <- getFromNamespace("start.iqr", "qrcm")
   iobjfun <- getFromNamespace("iobjfun", "qrcm")
+  iobjfun.ct <- getFromNamespace("iobjfun.ct", "qrcm")
   km <- getFromNamespace("km", "qrcm")
-  p.bisec.internal <- getFromNamespace("p.bisec.internal", "qrcm")
+  # p.bisec.internal <- getFromNamespace("p.bisec.internal", "qrcm")
   p.bisec <- getFromNamespace("p.bisec", "qrcm")
   apply_bfun <- getFromNamespace("apply_bfun", "qrcm")
   trans <- getFromNamespace("trans", "qrcm")
 
-  n <- nrow(mf)
   if(check) A <- check.in.2(mf, formula.p, s)
   V <- A$V; U <- A$U; s <- A$s; type <- A$type
   mf <- A$mf; n <- nrow(mf)
@@ -345,7 +290,7 @@ piqr.internal <- function(mf, cl, formula.p, tol=1e-6, maxit=100, s,
   bfun <- A$internal.bfun
 
   if(missing(maxit)){maxit <- 10 + 10*sum(s)}
-  else{maxit <- max(10, maxit)}
+  else{maxit <- max(10 + 10*sum(s), maxit)}
 
   if(st.theta){
     q <- length(S$X$vars)
@@ -357,17 +302,18 @@ piqr.internal <- function(mf, cl, formula.p, tol=1e-6, maxit=100, s,
     else{yy <- zz <- NULL}
 
     theta0 <- start.theta(V$y, V$z, V$d, V$X, V$weights, bfun,
-                          df = max(5, min(15, round(n/30/(q + 1)))), yy, zz, s = s)
+                        df = max(5, min(15, round(n/30/(q + 1)))), yy, zz, s = s)
   }else{
     theta0 <- theta0
   }
 
   Fit <- NULL
   fit.ok <- FALSE
-  safeit <- 5
+  safeit <- 10
   try.count <- 0
-  eeTol <- 0.5
-  eps0 <- 0.1
+  eeTol <- 1
+  eps0 <- 0.05
+
   edf <- NULL
 
   while(!fit.ok){
@@ -375,8 +321,14 @@ piqr.internal <- function(mf, cl, formula.p, tol=1e-6, maxit=100, s,
     try.count <- try.count + 1
 
     fit <- piqr.newton(theta0, V$y, V$z, V$d, V$X, V$Xw,
-                      bfun, s = s, type = type, tol = tol, maxit = maxit, safeit = safeit, eps0 = eps0, segno = segno, lambda = lambda)
+                      bfun, s = s, type = type, tol = tol, maxit = maxit,
+                      safeit = safeit, eps0 = eps0, segno = segno, lambda = lambda)
     edf <- fit$edf
+
+    if(max(abs(fit$ee)) > eeTol & try.count > 2){
+      fit <- divide.et.impera.2(fit, V, bfun, s, type, tol, maxit, safeit, eps0,
+                                segno = segno, lambda = lambda)
+    }
 
     if(fit.ok <- (fit$rank == ncol(fit$jacobian) & max(abs(fit$ee)) < eeTol)){
       # covar <- try(cov.theta(fit$coefficients, V$y, V$z, V$d, V$X, V$Xw,
@@ -391,7 +343,7 @@ piqr.internal <- function(mf, cl, formula.p, tol=1e-6, maxit=100, s,
 
     # if(try.count > 10 && !is.null(Fit)){break}
     # if(try.count == 20){break}
-    eeTol <- eeTol + 0.5
+    eeTol <- eeTol * 2 # I must be liberal. With discrete data, the objective function is nonsmooth.
     safeit <- safeit + 2
     eps0 <- eps0/2
   }
@@ -400,15 +352,18 @@ piqr.internal <- function(mf, cl, formula.p, tol=1e-6, maxit=100, s,
   # if(!covar.ok){warning("the estimated covariance matrix is deemed to be singular")}
   if(!fit.ok){fit <- Fit}#; covar <- Cov}
   if(!fit$converged){warning("the algorithm did not converge")}
+  nit <- fit$n.it # I save it here, because if I remove quantile crossing, fit$n.it will change.
 
   # minimized loss function
 
-  if(type == "iqr"){
-    v <- (S$y$M - S$y$m)/10
-    fit$obj.function <- iobjfun(fit$coef, V$y,V$X,V$weights, bfun, fit$p.star.y)*v
-  }
+  if(type == "iqr"){obj <- iobjfun(fit$coef, V$y,V$X,V$weights, bfun, fit$p.star.y)}
+  else{obj <- iobjfun.ct(fit$coef, V$z,V$y,V$d,V$X,V$weights, bfun, fit$py, fit$pz, type)}
 
-  # fitted CDFs
+  obj <- obj*(S$y$M - S$y$m)/10
+  attr(obj, "df") <- sum(s)
+  fit$obj.function <- obj
+
+  # fitted CDFs (for internal use, precision ~ 0.001)
 
   CDFs <- data.frame(CDF.y = fit$py,
                      CDF.z = (if(type == "ctiqr") fit$pz else NA))
@@ -417,7 +372,7 @@ piqr.internal <- function(mf, cl, formula.p, tol=1e-6, maxit=100, s,
   # output
 
   covar <- cov.theta.2(fit$coefficients, V$y, V$z, V$d, V$X, V$Xw,
-            V$weights, bfun, fit$p.star.y, fit$p.star.z, type, s = s, segno = segno, lambda = lambda, J=fit$jacobian)
+            V$weights, bfun, fit$p.star.y, fit$p.star.z, type, s = s, segno = segno, lambda = lambda)#, J=fit$jacobian
 
   attr(mf, "assign") <- S$X$assign
   attr(mf, "stats") <- S
@@ -431,31 +386,73 @@ piqr.internal <- function(mf, cl, formula.p, tol=1e-6, maxit=100, s,
   attr(mf, "type") <- type
   attr(mf, "grad") <- fit$grad
   attr(mf, "jacobian") <- fit$jacobian
-  attr(mf, "type") <- type
 
   out <- check.out.2(fit$coefficients, S, covar = covar$Q)
   fit <- list(coefficients = out$theta, call = cl,
-              converged = fit$converged, n.it = fit$n.it,
+              converged = fit$converged, n.it = nit,
               obj.function = fit$obj.function,
               covar = out$covar, mf = mf, s = s, edf = edf)
+
   jnames <- c(sapply(attr(A$bfun, "coef.names"),
                      function(x,y){paste(x,y, sep = ":")}, y = S$X$coef.names))
   dimnames(fit$covar) <- list(jnames, jnames)
   dimnames(fit$coefficients) <- dimnames(fit$s) <- list(S$X$coef.names, S$B$coef.names)
 
 
-  # CDF and PDF, precision ~ 1e-6
+  # CDF and PDF, precision ~ 1e-6. I avoid CDF < 2e-6 and CDF > 1 - 2e-6, because
+  # these two are the extreme of the grid used internally. What happens beyond these
+  # two values is not under control, and for example there could be crossing.
 
-  fit$CDF <- p.bisec(fit$coef,U$y,U$X,A$bfun)
+  fit$CDF <- pmin(1 - 2e-6, pmax(2e-6, p.bisec(fit$coef,U$y,U$X,A$bfun)))
   b1 <- apply_bfun(A$bfun, fit$CDF, "b1fun")
   fit$PDF <- 1/c(rowSums((U$X%*%fit$coef)*b1))
-  fit$PDF[attr(fit$CDF, "out")] <- 0
+  # if(any(fit$PDF < 0)){warning("Quantile crossing detected (PDF < 0)")}
+  # fit$PDF[attr(fit$CDF, "out")] <- 0 # removed in v3.0
   attributes(fit$CDF) <- attributes(fit$PDF) <- list(names = rownames(mf))
-  if(any(fit$PDF < 0)){warning("quantile crossing detected (PDF < 0 at some y)")}
 
   # finish
 
   class(fit) <- "iqr"
+  fit
+}
+
+# Fix the max ee. If fail, try the second largest, and so on.
+divide.et.impera.2 <- function(fit, V, bfun, s, type, tol, maxit, safeit, eps0, segno = 1, lambda = 0){
+
+  maxind <- getFromNamespace("maxind", "qrcm")
+
+  if(sum(s) == 1){fit$failes <- FALSE; return(fit)}
+  theta0 <- theta <- fit$coef
+  ee <- s; ee[s == 1] <- abs(fit$ee)
+
+  failed <- TRUE
+  while(failed){
+
+    i <- maxind(ee)
+
+    sbis <- s*(ee > 0); sbis[-i[1],] <- 0
+    fit <- piqr.newton(theta, V$y, V$z, V$d, V$X, V$Xw,
+                       bfun, s = sbis, type = type, tol = tol, maxit = 2*sum(sbis),
+                       safeit = 5, eps0 = eps0, segno = segno, lambda = lambda)
+    theta <- fit$coef
+
+    sbis <- s*(ee > 0); sbis[,-i[2]] <- 0
+    fit <- piqr.newton(theta, V$y, V$z, V$d, V$X, V$Xw,
+                       bfun, s = sbis, type = type, tol = tol, maxit = 2*sum(sbis),
+                       safeit = 5, eps0 = eps0, segno = segno, lambda = lambda)
+    theta <- fit$coef
+
+    failed <- (all(theta == theta0))
+    ee[i[1],i[2]] <- 0 # If I failed, I just give up this coefficient
+    if(all(ee == 0)){break}
+  }
+
+  if(failed){fit$failed <- TRUE; return(fit)}
+
+  fit <- piqr.newton(theta, V$y, V$z, V$d, V$X, V$Xw,
+                     bfun, s = s, type = type, tol = tol, maxit = maxit,
+                     safeit = safeit, eps0 = eps0, segno = segno, lambda = lambda)
+  fit$failed <- FALSE
   fit
 }
 
@@ -467,6 +464,7 @@ check.in.2 <- function(mf, formula.p, s){
   apply_bfun <- getFromNamespace("apply_bfun", "qrcm")
   num.fun <- getFromNamespace("num.fun", "qrcm")
 
+  if(!(any(all.vars(formula.p) == "p"))){stop("the quantile function must depend on p")}
   if(!missing(s) && all(s == 0)){stop("'s' cannot be all zero")}
   explore.s <- function(s, dim){
     if(dim == 2){s <- t(s)}
@@ -496,7 +494,6 @@ check.in.2 <- function(mf, formula.p, s){
   }
   if(any(alarm)){warning("observations with null weight will be dropped", call. = FALSE)}
   if((n <- nrow(mf)) == 0){stop("zero non-NA cases", call. = FALSE)}
-
     # y,z,d, weights
 
   zyd <- model.response(mf)
@@ -529,6 +526,7 @@ check.in.2 <- function(mf, formula.p, s){
   p1 <- pbeta(seq.int(qbeta(1e-6,2,2), qbeta(1 - 1e-6,2,2), length.out = 1000),2,2)
   p2 <- (1:1023)/1024
   p3 <- pbeta(seq.int(qbeta(1/(1000*n),2.5,2.5), qbeta(1 - 1/(1000*n),2.5,2.5), length.out = 1023),2.5,2.5)
+
 
   if((use.slp <- is.slp(formula.p))){
     k <- attr(use.slp, "k")
@@ -657,7 +655,7 @@ check.in.2 <- function(mf, formula.p, s){
   }
   else{
     k <- attr(bfun, "k")
-    pp <- matrix(NA, 1023, k + 1)
+    pp <- matrix(, 1023, k + 1)
     pp[,1] <- 1; pp[,2] <- p
     if(k > 1){for(j in 2:k){pp[,j + 1] <- pp[,j]*p}}
     bp <- tcrossprod(pp, t(bfun$a))
@@ -825,6 +823,8 @@ piqr.newton <- function(theta, y,z,d,X,Xw, bfun, s, type, tol=1e-6, maxit=100, s
   eps <- eps0
   edf <- NULL
 
+  # Preliminary safe iterations, only g is used
+
   for(i in 1:safeit){
 
     if(conv | max(abs(g)) < tol){break}
@@ -857,9 +857,9 @@ piqr.newton <- function(theta, y,z,d,X,Xw, bfun, s, type, tol=1e-6, maxit=100, s
 
   alg <- "nr"
   conv <- FALSE
-  eps <- 0.1
+  eps <- eps*10
   h <- ee(theta, y,z,d,X,Xw, bfun, p.star.y, p.star.z, J = TRUE, G = G, segno=segno, lambda=lambda)$J[s,s, drop = FALSE]
-  h <- h + diag(1e-4, nrow(h))
+  h <- h + diag(0.0001, nrow(h)) # added in version 3.0
 
   for(i in 1:maxit){
 
@@ -869,7 +869,7 @@ piqr.newton <- function(theta, y,z,d,X,Xw, bfun, s, type, tol=1e-6, maxit=100, s
 
     if(type == "iqr"){
       H1 <- try(chol(h), silent = TRUE)
-      err <- (class(H1) == "try-error")
+      err <- (inherits(H1,"try-error"))
     }
     else{
       H1 <- qr(h)
@@ -902,14 +902,13 @@ piqr.newton <- function(theta, y,z,d,X,Xw, bfun, s, type, tol=1e-6, maxit=100, s
     }
 
     if(conv){break}
+
     g <- g1
     G <- G1
     theta <- new.theta
-    .temp <- ee(theta, y,z,d,X,Xw, bfun, p.star.y, p.star.z, J = TRUE, G = G, segno=segno, lambda=lambda)
-    edf <- .temp$edf
-    h <- .temp$J[s,s, drop = FALSE]
-    h <- h + diag(1e-4, nrow(h))
-
+    h <- ee(theta, y,z,d,X,Xw, bfun, p.star.y, p.star.z, J = TRUE, G = G, lambda = lambda)
+    edf <- h$edf
+    h <- h$J[s,s, drop = FALSE]
     if(i > 1){eps <- min(eps*10,1)}
     else{eps <- min(eps*10,0.1)}
   }
@@ -924,15 +923,15 @@ piqr.newton <- function(theta, y,z,d,X,Xw, bfun, s, type, tol=1e-6, maxit=100, s
   }
   else{p.star.z <- pz <- NULL}
 
-  G <- ee(theta, y, z, d, X, Xw, bfun, p.star.y, p.star.z, J=FALSE, segno=1, lambda=0)
+  G <- ee(theta, y, z, d, X, Xw, bfun, p.star.y, p.star.z, J=FALSE, segno=1, lambda=0)$g
 
   list(coefficients = matrix(theta, q, k),
        converged = (i < maxit), n.it = i, p.star.y = p.star.y, p.star.z = p.star.z, py = py, pz = pz,
-       ee = g, jacobian = h, rank = (alg == "nr")*sum(s), grad=G$g, edf=edf)
+       ee = g, jacobian = h, rank = (alg == "nr")*sum(s), grad=G, edf=edf)
 }
 
-piqr.ee <- function(theta, y, z, d, X, Xw, bfun, p.star.y, p.star.z, J=TRUE, G,
-                    i=FALSE, segno=1, lambda=0){
+piqr.ee <- function(theta, y, z, d, X, Xw,
+                    bfun, p.star.y, p.star.z, J=TRUE, G, i=FALSE, segno=1, lambda=0){
 
   k <- ncol(theta)
   n <- length(y)
@@ -946,7 +945,6 @@ piqr.ee <- function(theta, y, z, d, X, Xw, bfun, p.star.y, p.star.z, J=TRUE, G,
   }
   else{B <- G$B; g <- G$g}
 
-  edf2 <- NULL
   if(J){
     # b <- bfun$bp[p.star.y,, drop = FALSE]
     b1 <- bfun$b1p[p.star.y,, drop = FALSE]
@@ -973,7 +971,7 @@ piqr.ee <- function(theta, y, z, d, X, Xw, bfun, p.star.y, p.star.z, J=TRUE, G,
 # edf2 <- sapply(1:ncol(X), function(.i) mean(edf[.i, ][I(theta[.i,] !=0)], na.rm=TRUE))
   }
 
-  list(g = g, J = J, B = B, edf = edf2)
+  list(g = g, J = J, B = B)
 }
 
 pciqr.ee <- function(theta, y, z, d, X, Xw, bfun, p.star.y, p.star.z, J = TRUE, G,
@@ -1087,20 +1085,41 @@ pctiqr.ee <- function(theta, y, z, d, X, Xw, bfun, p.star.y, p.star.z, J = TRUE,
 }
 
 cov.theta.2 <- function(theta, y,z,d,X,Xw, weights, bfun,
-                      p.star.y, p.star.z, type, s, segno=1, lambda=0, J){
+                      p.star.y, p.star.z, type, s, segno=1, lambda=0){ #, J
 
   if(type == "iqr"){ee <- piqr.ee}
   else if(type == "ciqr"){ee <- pciqr.ee}
   else{ee <- pctiqr.ee}
   s <- c(s == 1)
 
-  G.i <- ee(theta, y,z,d,X,Xw, bfun, p.star.y, p.star.z, J = FALSE, i = TRUE, segno=segno, lambda=lambda)$g
-  s.i <- G.i[,s, drop = FALSE]
-  G <- J
+  # G.i <- ee(theta, y,z,d,X,Xw, bfun, p.star.y, p.star.z, J = FALSE, i = TRUE, segno=segno, lambda=lambda)$g
+  # s.i <- G.i[,s, drop = FALSE]
+  # G <- J
 
-  Omega <- chol2inv(chol(t(s.i*weights)%*%s.i))
-  Q0 <- t(G)%*%Omega%*%G
+  G.i <- ee(theta, y,z,d,X,Xw, bfun, p.star.y, p.star.z, J = TRUE, i = TRUE)
+  s.i <- G.i$g[,s, drop = FALSE]
+  G <- G.i$J[s,s, drop = FALSE]
+
+  # to avoid singularities/nondifferentiability (added in v 3.0)
+  s.i <- t(t(s.i) - colMeans(s.i))
+  G <- G + diag(0.01, ncol(G))
+
+  Omega <- chol2inv(chol(t(s.i*weights)%*%s.i + diag(0.01, ncol(s.i)))) # extra diag added in v 3.0
+  Q0 <- t(G)%*%Omega%*%G + diag(0.01, ncol(G)) # extra diag added in v 3.0
   Q <- chol2inv(chol(Q0))
+
+  # I reduce correlation between estimates.
+  # If it is too high, something may go wrong: I bound it at 0.999.
+
+  if((cc <- ncol(Q)) > 1){
+    for(j1 in 1:(cc - 1)){
+      for(j2 in (j1 + 1):cc){
+        s12 <- sign(Q[j1,j2])
+        Q[j1,j2] <- Q[j2,j1] <- s12*pmin(abs(Q[j1,j2]), 0.999*sqrt(Q[j1,j1]*Q[j2,j2]))
+      }
+    }
+  }
+
   U <- matrix(0, length(s), length(s))
   U[s,s] <- Q
 
@@ -1120,19 +1139,24 @@ print.piqr <- function(x, digits=max(3L, getOption("digits") - 3L), ...){
 }
 
 #' @export
-plot.piqr <- function(x, xvar=c("norm", "lambda", "objective", "grad", "beta"), label=FALSE, lambda, which=NULL,
+plot.piqr <- function(x, xvar=c("lambda", "objective", "grad", "beta"), pos.lambda, label=FALSE, which=NULL,
                       ask=TRUE, polygon=TRUE, ...){
   xvar = match.arg(xvar)
-  if(xvar == "beta" & missing(lambda)){
+  if(x$internal$nlambda == 1){
+    xvar <- "beta"
+    warning("Only one lambda available, hence xvar = 'beta'")
+  }
+  if(xvar == "beta" & missing(pos.lambda)){
     if(length(x$lambda) != 1){
-      stop("Please insert a lambda value")
+      stop("Please insert the position of a lambda value")
     }else{
-      lambda <- x$lambda
+      # lambda <- x$lambda
+      l <- 1
     }
   }else{
-    if(xvar == "beta" & !missing(lambda)){
-      l <- match(lambda, x$lambda)
-      if(is.na(l)) stop("Lambda value is not correct")
+    if(xvar == "beta" & !missing(pos.lambda)){
+      l <- pos.lambda # l <- match(lambda, x$lambda)
+      # if(is.na(l)) stop("Lambda value is not correct")
     }
   }
 
@@ -1145,14 +1169,14 @@ plot.piqr <- function(x, xvar=c("norm", "lambda", "objective", "grad", "beta"), 
     p <- ncol(x$internal$X)
     if(intercept){
       beta <- sapply(1:nl, function(.i) x$coefficients[[.i]][-1, ])
-      grad <- sapply(1:nl, function(.i) c(matrix(x$dl[, .i], ncol=k)[-1, ]))
+      grad <- sapply(1:nl, function(.i) c(matrix(x$dl[, .i], ncol=p)[-1, ]))
     }else{
       beta <- sapply(1:nl, function(.i) x$coefficients[[.i]])
     }
 
     plotCoef(beta, lambda=lambda, df=x$df, dev=x$obj.function, grad=x$dl, label=label, xvar=xvar, ...)
   }else{
-    plot.piqr2(x, lambda=lambda, which=which, ask=ask, polygon=polygon, ...)
+    plot.piqr2(x, lambda=l, which=which, ask=ask, polygon=polygon, ...)
   }
 }
 
@@ -1166,21 +1190,19 @@ plot.piqr2 <- function(x, lambda, conf.int=TRUE, polygon=TRUE, which=NULL, ask=T
       L$ylim <- c(y1,y2)
     }
     plot(p, u[[j]]$beta, xlab = L$xlab, ylab = L$ylab[j], main = L$labels[j],
-         type = "l", lwd = L$lwd, xlim = L$xlim, ylim = L$ylim, col = L$col, cex.lab = L$cex.lab, cex.axis = L$cex.axis)
+         type = "l", lwd = L$lwd, xlim = L$xlim, ylim = L$ylim, col = L$col,
+         cex.lab = L$cex.lab, cex.axis = L$cex.axis, axes = L$axes,
+         frame.plot = L$frame.plot)
     if(conf.int){
       if(polygon){
         yy <- c(u[[j]]$low, tail(u[[j]]$up, 1), rev(u[[j]]$up), u[[j]]$low[1])
         xx <- c(p, tail(p, 1), rev(p), p[1])
         polygon(xx, yy, col = adjustcolor(L$col, alpha.f = 0.25), border = NA)
       }else{
-        points(p, u[[j]]$low, lty = 2, lwd = L$lwd, type = "l", col = L$col, cex.lab = L$cex.lab, cex.axis = L$cex.axis)
-        points(p, u[[j]]$up, lty = 2, lwd = L$lwd, type = "l", col = L$col, cex.lab = L$cex.lab, cex.axis = L$cex.axis)
+        points(p, u[[j]]$low, lty = 2, lwd = L$lwd, type = "l", col = L$col)
+        points(p, u[[j]]$up, lty = 2, lwd = L$lwd, type = "l", col = L$col)
       }
     }
-    # if(conf.int){
-    #   points(p, u[[j]]$low, lty = 2, lwd = L$lwd, type = "l", col = L$col, cex.lab = L$cex.lab, cex.axis = L$cex.axis)
-    #   points(p, u[[j]]$up, lty = 2, lwd = L$lwd, type = "l", col = L$col, cex.lab = L$cex.lab, cex.axis = L$cex.axis)
-    # }
   }
 
   L <- list(...)
@@ -1194,9 +1216,11 @@ plot.piqr2 <- function(x, lambda, conf.int=TRUE, polygon=TRUE, which=NULL, ask=T
   q <- length(L$labels)
   if(is.null(L$ylab)){L$ylab <- rep("beta(p)", q)}
   L$labels <- c(L$labels, "qqplot")
+  if(is.null(L$axes)){L$axes <- TRUE}
+  if(is.null(L$frame.plot)){L$frame.plot <- TRUE}
 
   p <- seq.int(max(0.001,L$xlim[1]), min(0.999,L$xlim[2]), length.out = 100)
-  u <- predict.piqr(x, lambda=lambda, p=p, type="beta", se=conf.int)
+  u <- predict.piqr(x, pos.lambda=lambda, p=p, type="beta", se=conf.int)
 
   if(!is.null(which) | !ask){
     if(is.null(which)){which <- 1:q}
@@ -1212,8 +1236,8 @@ plot.piqr2 <- function(x, lambda, conf.int=TRUE, polygon=TRUE, which=NULL, ask=T
         KM$time <- sort(runif(nrow(x$internal$mf), 0, 1))
         KM$cdf <- sort(predict(x, lambda, type="CDF")[, 1])
         plot(KM$time, KM$cdf, pch = 20, cex = 0.5,
-             xlim = c(0,1), ylim = c(0,1),
-             ylab = "U(0,1) quantiles", xlab = "fitted CDF quantiles", cex.axis = L$cex.axis, cex.lab = L$cex.lab)
+             xlim = c(0,1), ylim = c(0,1), ylab = "U(0,1) quantiles",
+             xlab = "fitted CDF quantiles", cex.axis = L$cex.axis, cex.lab = L$cex.lab)
         abline(0,1)
       }
     }
@@ -1221,16 +1245,17 @@ plot.piqr2 <- function(x, lambda, conf.int=TRUE, polygon=TRUE, which=NULL, ask=T
 }
 
 #' @export
-predict.piqr <- function(object, lambda, type = c("beta", "CDF", "QF", "sim"), newdata, p, se=TRUE, ...){
-  if(missing(lambda)){
+predict.piqr <- function(object, pos.lambda, type = c("beta", "CDF", "QF", "sim"), newdata, p, se=TRUE, ...){
+  if(missing(pos.lambda)){
     if(length(object$lambda) != 1){
-      stop("Please insert a lambda value")
+      stop("Please insert the position of a lambda value")
     }else{
-      lambda <- object$lambda
+      # lambda <- object$lambda
+      l <- 1
     }
   }
-  l <- match(lambda, object$lambda)
-  if(is.na(l)) stop("Lambda value is not correct")
+  l <- pos.lambda #match(lambda, object$lambda)
+  # if(is.na(l)) stop("Lambda value is not correct")
 
   pred.beta <- getFromNamespace("pred.beta", "qrcm")
   p.bisec <- getFromNamespace("p.bisec", "qrcm")
@@ -1251,6 +1276,7 @@ predict.piqr <- function(object, lambda, type = c("beta", "CDF", "QF", "sim"), n
   fittype <- attr(mf, "type")
   nomiss <- (if(is.null(miss)) 1:nrow(mf) else (1:(nrow(mf) + length(miss)))[-miss])
   xlev <- .getXlevels(mt, mf)
+  contr <- attr(mf, "contrasts")
 
   if(!missing(newdata)){
     if(type == "CDF"){
@@ -1283,7 +1309,7 @@ predict.piqr <- function(object, lambda, type = c("beta", "CDF", "QF", "sim"), n
     nomiss <- (if(is.null(miss)) 1:nrow(mf) else (1:nrow(newdata))[-miss])
   }
 
-  x <- model.matrix(mt, mf)
+  x <- model.matrix(mt, mf, contrasts.arg = contr)
 
   if(type == "CDF"){
     bfun <- attr(object$internal$mf, "bfun")
@@ -1291,7 +1317,7 @@ predict.piqr <- function(object, lambda, type = c("beta", "CDF", "QF", "sim"), n
     Fy <- p.bisec(object$coefficients[[l]], y,x, bfun)
     b1 <- apply_bfun(bfun, Fy, "b1fun")
     fy <- 1/c(rowSums((x%*%object$coefficients[[l]])*b1))
-    fy[attr(Fy, "out")] <- 0
+    # fy[attr(Fy, "out")] <- 0
     if(any(fy < 0)){warning("some PDF values are negative (quantile crossing)")}
     CDF <- PDF <- NULL
     CDF[nomiss] <- Fy
@@ -1335,16 +1361,17 @@ predict.piqr <- function(object, lambda, type = c("beta", "CDF", "QF", "sim"), n
 }
 
 #' @export
-summary.piqr <- function(object, lambda, SE=FALSE, p, cov=FALSE, ...){
-  if(missing(lambda)){
+summary.piqr <- function(object, pos.lambda, SE=FALSE, p, cov=FALSE, ...){
+  if(missing(pos.lambda)){
     if(length(object$lambda) != 1){
-      stop("Please insert a lambda value")
+      stop("Please insert the position of a lambda value")
     }else{
-      lambda <- object$lambda
+      # lambda <- object$lambda
+      l <- 1
     }
   }
-  l <- match(lambda, object$lambda)
-  if(is.na(l)) stop("Lambda value is not correct")
+  l <- pos.lambda #match(lambda, object$lambda)
+  # if(is.na(l)) stop("Lambda value is not correct")
 
   if(missing(p)){
     covar <- object$covar[[l]]
@@ -1357,7 +1384,7 @@ summary.piqr <- function(object, lambda, SE=FALSE, p, cov=FALSE, ...){
       se <- NULL
     }
 
-    out <- list(nlambda=lambda, coefficients=object$coefficients[[l]], se=se, covar=covar,
+    out <- list(nlambda=object$lambda[l], coefficients=object$coefficients[[l]], se=se, covar=covar,
                 obj.function=object$obj.function[l], n=nrow(object$internal$mf), free.par=object$df[l],
                 call=object$call, SE=SE)
   }else{
@@ -1524,4 +1551,33 @@ nonzeroCoef <- function (beta, bystep=FALSE){
     else which
   }
 }
+
+#' @export
+terms.piqr <- function(x, ...){attr(x$internal$mf, "terms")}
+
+#' @export
+coef.piqr <- function(object, pos.lambda, ...){
+  if(missing(pos.lambda)){
+    if(length(object$lambda) != 1){
+      stop("Please insert the position of a lambda value")
+    }else{
+      l <- 1
+    }
+  }
+  l <- pos.lambda
+  object$coefficients[[l]]
+}
+
+#' @export
+model.matrix.piqr <- function(object, ...){
+  mf <- object$internal$mf
+  mt <- terms(mf)
+  model.matrix(mt, mf)
+}
+
+#' @export
+nobs.piqr <- function(object, ...){
+  nrow(object$internal$mf)
+}
+
 

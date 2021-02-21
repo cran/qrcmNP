@@ -7,15 +7,15 @@ Prediction After Penalized Quantile Regression Coefficients Modeling
 Predictions from an object of class \dQuote{\code{piqr}}, after selecting the best tuning parameter.
 }
 \usage{
-\method{predict}{piqr}(object, lambda, type=c("beta", "CDF", "QF", "sim"), newdata,
+\method{predict}{piqr}(object, pos.lambda, type=c("beta", "CDF", "QF", "sim"), newdata,
                        p, se=TRUE, \ldots)
 }
 \arguments{
   \item{object}{
   an object of class \dQuote{\code{piqr}}, the result of a call to \code{\link{piqr}}.
 }
-  \item{lambda}{
-  a value of lambda in the sequence of the object of class \dQuote{\code{piqr}}. Could be the best
+  \item{pos.lambda}{
+  the positiion of a lambda in the sequence of the object of class \dQuote{\code{piqr}}. Could be the best
   after selecting the result of a call to \code{\link{gof.piqr}}
 }
   \item{type}{
@@ -75,18 +75,18 @@ obj <- piqr(y ~ x1 + x2, formula.p = ~ I(qnorm(p)) + slp(p, 2), s=s, nlambda=50)
 best <- gof.piqr(obj, method="AIC", plot=FALSE)
 
 # predict beta(0.25), beta(0.5), beta(0.75)
-predict(obj, best$minLambda, type = "beta", p = c(0.25,0.5, 0.75))
+predict(obj, best$posMinLambda, type = "beta", p = c(0.25,0.5, 0.75))
 
 # predict the CDF and the PDF at new values of x and y
-predict(obj, best$minLambda, type = "CDF",
+predict(obj, best$posMinLambda, type = "CDF",
         newdata = data.frame(x1=rexp(3), x2=runif(3), y = c(1,2,3)))
 
 # computes the quantile function at new x, for p = (0.25,0.5,0.75)
-predict(obj, best$minLambda, type = "QF", p = c(0.25,0.5,0.75),
+predict(obj, best$posMinLambda, type = "QF", p = c(0.25,0.5,0.75),
         newdata = data.frame(x1=rexp(3), x2=runif(3), y = c(1,2,3)))
 
 # simulate data from the fitted model
-ysim <- predict(obj, best$minLambda, type = "sim") # 'newdata' can be supplied
+ysim <- predict(obj, best$posMinLambda, type = "sim") # 'newdata' can be supplied
 
 # if the model is correct, the distribution of y and that of ysim should be similar
 qy <- quantile(y, prob = seq(.1,.9,.1))

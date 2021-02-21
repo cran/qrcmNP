@@ -33,7 +33,7 @@ of class \dQuote{\code{niqr}}.
 Gianluca Sottile \email{gianluca.sottile@unipa.ot}
 }
 \seealso{
-\code{\link{niqr}} for model fitting; \code{\link{test.fit.niqr}} for goodness of fit test; \code{\link{summary.niqr}} and \code{\link{predict.niqr}} for model summary and prediction.
+\code{\link{niqr}} for model fitting; \code{\link{testfit.niqr}} for goodness of fit test; \code{\link{summary.niqr}} and \code{\link{predict.niqr}} for model summary and prediction.
 }
 \examples{
 

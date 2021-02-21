@@ -44,14 +44,18 @@ plotCoef(beta, norm, lambda, df, dev, grad, label=FALSE,
           xlab=iname, ylab="Coefficients", \ldots)
 nonzeroCoef(beta, bystep=FALSE)
 cov.theta.2(theta, y,z,d,X,Xw, weights, bfun,
-            p.star.y, p.star.z, type, s, segno=1, lambda=0, J)
+            p.star.y, p.star.z, type, s, segno=1, lambda=0)
 plot.piqr2(x, lambda, conf.int=TRUE, polygon=TRUE, which=NULL, ask=TRUE, ...)
-
+divide.et.impera.2(fit, V, bfun, s, type, tol, maxit, safeit, eps0, segno = 1, lambda = 0)
 
 \method{print}{niqr}(x, digits=max(3L, getOption("digits") - 3L), \ldots)
 \method{print}{summary.niqr}(x, digits = max(3L, getOption("digits") - 3L), \ldots)
 \method{print}{piqr}(x, digits=max(3L, getOption("digits") - 3L), \ldots)
 \method{print}{summary.piqr}(x, digits = max(3L, getOption("digits") - 3L), \ldots)
+\method{terms}{piqr}(x, \ldots)
+\method{coef}{piqr}(object, pos.lambda, \ldots)
+\method{model.matrix}{piqr}(object, \ldots)
+\method{nobs}{piqr}(object, \ldots)
 }
 \keyword{internal}
 

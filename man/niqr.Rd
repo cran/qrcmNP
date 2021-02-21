@@ -73,7 +73,7 @@ Gianluca Sottile \email{gianluca.sottile@unipa.it}
 \seealso{
 \code{\link{summary.niqr}}, \code{\link{plot.niqr}}, \code{\link{predict.niqr}},
 for summary, plotting, and prediction.
-\code{\link{test.fit.niqr}} for goodness of fit.
+\code{\link{testfit.niqr}} for goodness of fit.
 }
 \examples{
 

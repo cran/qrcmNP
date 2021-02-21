@@ -1,0 +1,17 @@
+citHeader("To cite qrcmNP in publications use:")
+
+citEntry(entry="Article",
+         title = "A penalized approach to covariate selection through quantile regression coefficient models.",
+         author = personList(as.person("Gianluca Sottile"),as.person("Paolo Frumento"),as.person("Marcello Chiodi"),
+as.person("Matteo Bottai")),
+         journal      = "Statistical Modelling",
+         year         = "2020",
+	volume       = "20",
+	number       = "4",
+	pages        = "369--385",
+	doi 	    = "10.1177/1471082X19825523",
+         textVersion = 
+         paste("Gianluca Sottile, Paolo Frumento, Marcello Chiodi and Matteo Bottai (2020).", 
+               "A penalized approach to covariate selection through quantile regression coefficient models",
+               "Statistical Modelling, 20(4), 369-385. doi:10.1177/1471082X19825523.")
+)

@@ -1,5 +1,5 @@
-\name{test.fit.niqr}
-\alias{test.fit.niqr}
+\name{testfit.niqr}
+\alias{testfit.niqr}
 \title{
 Goodness-of-Fit Test
 }
@@ -10,7 +10,7 @@ are computed. Their distribution under the null hypothesis is estimated
 with Monte Carlo (see \sQuote{Details}).
 }
 \usage{
-test.fit.niqr(obj, R = 100)
+testfit.niqr(obj, R = 100)
 }
 \arguments{
   \item{obj}{
@@ -51,6 +51,6 @@ fun <- function(theta, p){
 beta <- fun(c(1,1,1,1), runif(n))
 y <- beta[, 1] + beta[, 2]*x
 model <- niqr(fun=fun, x0=rep(0, 4), X=cbind(1,x), y=y)
-\dontrun{test.fit.niqr(model, R=100)}
+\dontrun{testfit.niqr(model, R=100)}
 }
 \keyword{htest}

@@ -9,27 +9,26 @@ regression coefficient paths for a fitted model of
 class \dQuote{\code{piqr}}.
 }
 \usage{
-\method{plot}{piqr}(x, xvar=c("norm", "lambda", "objective", "grad", "beta"), label=FALSE,
-                    lambda, which=NULL, ask=TRUE, polygon=TRUE, ...)
+\method{plot}{piqr}(x, xvar=c("lambda", "objective", "grad", "beta"), pos.lambda,
+                    label=FALSE, which=NULL, ask=TRUE, polygon=TRUE, ...)
 }
 \arguments{
   \item{x}{
   an object of class \dQuote{\code{piqr}}, typically the result of a call to \code{\link{piqr}}.
 }
   \item{xvar}{
-  What is on the X-axis. "norm" plots against the L1-norm of the coefficients,
-  "lambda" against the log-lambda sequence, "objective" against the value
+  What is on the X-axis. "lambda" against the log-lambda sequence, "objective" against the value
   of the minimized integrated loss function and "grad" the log-lambda sequence
   against the gradient.
   xvar = "beta" needs a lambda value to plot quantile regression coefficients
   \eqn{\beta(p | \theta(\lambda))} as a function of p, based on the fitted model of class \dQuote{\code{piqr}}
 }
+  \item{pos.lambda}{
+  the position of a lambda in the sequence of the object of class \dQuote{\code{piqr}}. Could be the best
+  after selecting the result of a call to \code{\link{gof.piqr}}
+}
   \item{label}{
   If TRUE, label the curves with variable sequence numbers.
-}
-  \item{lambda}{
-  a value of lambda in the sequence of the object of class \dQuote{\code{piqr}}. Could be the best
-  after selecting the result of a call to \code{\link{gof.piqr}}
 }
   \item{which}{
   an optional numerical vector indicating which coefficient(s) to plot. If which = NULL, all coefficients are     plotted.
@@ -67,12 +66,11 @@ Gianluca Sottile \email{gianluca.sottile@unipa.ot}
 
   obj <- piqr(y ~ x, formula.p = ~ slp(p,3), nlambda=50)
   best <- gof.piqr(obj, method="BIC", plot=FALSE)
-  par(mfrow = c(2,2))
-  plot(obj, xvar="norm")
+  par(mfrow = c(1,3))
   plot(obj, xvar="lambda")
   plot(obj, xvar="objective")
   plot(obj, xvar="grad")
-  par(mfrow=c(1,2));plot(obj, xvar="beta", lambda=best$minLambda, ask=FALSE)
+  par(mfrow=c(1,2));plot(obj, xvar="beta", pos.lambda=best$posMinLambda, ask=FALSE)
   # flexible fit with shifted Legendre polynomials
 }
 \keyword{methods}

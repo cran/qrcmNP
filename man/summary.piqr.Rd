@@ -7,14 +7,14 @@ Summary After Penalized Quantile Regression Coefficients Modeling
 Summary of an object of class \dQuote{\code{piqr}}, after selecting the best tuning parameter.
 }
 \usage{
-\method{summary}{piqr}(object, lambda, SE=FALSE, p, cov=FALSE, \ldots)
+\method{summary}{piqr}(object, pos.lambda, SE=FALSE, p, cov=FALSE, \ldots)
 }
 \arguments{
   \item{object}{
   an object of class \dQuote{\code{piqr}}, the result of a call to \code{\link{piqr}}.
 }
-  \item{lambda}{
-  a value of lambda in the sequence of the object of class \dQuote{\code{piqr}}. Could be the best
+  \item{pos.lambda}{
+  the position of a lambda in the sequence of the object of class \dQuote{\code{piqr}}. Could be the best
   after selecting the result of a call to \code{\link{gof.piqr}}
 }
   \item{SE}{
@@ -62,6 +62,6 @@ obj <- piqr(y ~ x1 + x2, formula.p = ~ I(qnorm(p)) + slp(p, 2), s=s, nlambda=50)
 best <- gof.piqr(obj, method="AIC", plot=FALSE)
 best2 <- gof.piqr(obj, method="BIC", plot=FALSE)
 
-summary(obj, best$minLambda)
-summary(obj, best2$minLambda)
+summary(obj, best$posMinLambda)
+summary(obj, best2$posMinLambda)
 }

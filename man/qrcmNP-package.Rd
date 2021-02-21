@@ -12,11 +12,11 @@ This package also implements a penalized Frumento and Bottai's (2015) method for
 \tabular{ll}{
 Package: \tab qrcmNP\cr
 Type: \tab Package\cr
-Version: \tab 0.1.2\cr
-Date: \tab 2018-06-04\cr
+Version: \tab 1.0.0\cr
+Date: \tab 2018-11-09\cr
 License: \tab GPL-2\cr
 }
-The function \code{\link{niqr}} permits specifying nonlinear basis for each variables. The function \code{\link{test.fit.niqr}} permits to do goodness of fit.
+The function \code{\link{niqr}} permits specifying nonlinear basis for each variables. The function \code{\link{testfit.niqr}} permits to do goodness of fit.
 The auxiliary functions \code{\link{summary.niqr}}, \code{\link{predict.niqr}}, and \code{\link{plot.niqr}} can be used to extract information from the fitted model.
 The function \code{\link{piqr}} permits specifying the lasso regression model. The function \code{\link{gof.piqr}} permits to select the best tuning parameter through AIC, BIC, GIC and GCV criteria. The auxiliary functions \code{\link{summary.piqr}}, \code{\link{predict.piqr}}, and \code{\link{plot.piqr}} can be used to extract information from the fitted model.
 }
@@ -27,9 +27,11 @@ Maintainer: Gianluca Sottile <gianluca.sottile@unipa.it>
 }
 \keyword{ package }
 \references{
-Frumento, P., and Bottai, M. (2016). Parametric modeling of quantile regression coefficient functions. Biometrics, 72 (1), pp 74-84, doi:10.1111/biom.12410.
+Sottile G, Frumento P, Chiodi M, Bottai M. (2020). \emph{A penalized approach to covariate selection through quantile regression coefficient models}. Statistical Modelling, 20(4), pp 369-385. doi:10.1177/1471082X19825523.
 
-Friedman, J., Hastie, T. and Tibshirani, R. (2008). \emph{Regularization Paths for Generalized Linear Models via Coordinate Descent}. Journal of Statistical Software, Vol. 33(1), 1-22 Feb 2010.
+Frumento, P., and Bottai, M. (2016). \emph{Parametric modeling of quantile regression coefficient functions}. Biometrics, 72(1), pp 74-84, doi:10.1111/biom.12410.
+
+Friedman, J., Hastie, T. and Tibshirani, R. (2008). \emph{Regularization Paths for Generalized Linear Models via Coordinate Descent}. Journal of Statistical Software, Vol. 33(1), pp 1-22 Feb 2010.
 }
 \examples{
 
@@ -65,7 +67,7 @@ obj <- piqr(y ~ x1 + x2, formula.p = ~ I(qnorm(p)) + slp(p, 2), s=s, nlambda=50)
 best <- gof.piqr(obj, method="AIC", plot=FALSE)
 best2 <- gof.piqr(obj, method="BIC", plot=FALSE)
 
-summary(obj, best$minLambda)
-summary(obj, best2$minLambda)
+summary(obj, best$posMinLambda)
+summary(obj, best2$posMinLambda)
 
 }

@@ -354,7 +354,7 @@ plot.niqr <- function(x, conf.int=TRUE, which=NULL, ask=TRUE, ...){
 }
 
 #' @export
-test.fit.niqr <- function(obj, R = 100){
+testfit.niqr <- function(obj, R = 100){
 
   test.unif.ct <- function(y){
     n <- length(y)

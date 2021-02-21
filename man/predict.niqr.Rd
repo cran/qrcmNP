@@ -41,7 +41,7 @@ if the support of the new covariates values supplied in \code{newdata}
 is different from that of the observed data.
 }
 \seealso{
-\code{\link{niqr}}, for model fitting; \code{\link{test.fit.niqr}}, to do goodness of fit test; \code{\link{summary.niqr}} and \code{\link{plot.niqr}}, for summarizing and plotting \code{niqr} objects.
+\code{\link{niqr}}, for model fitting; \code{\link{testfit.niqr}}, to do goodness of fit test; \code{\link{summary.niqr}} and \code{\link{plot.niqr}}, for summarizing and plotting \code{niqr} objects.
 }
 \examples{
 

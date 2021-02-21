@@ -27,7 +27,7 @@ A summary of the model is printed.
 Gianluca Sottile \email{gianluca.sottile@unipa.it}
 }
 \seealso{
-\code{\link{niqr}}, for model fitting; \code{\link{test.fit.niqr}}, for goodness of fit test; \code{\link{predict.niqr}} and \code{\link{plot.niqr}}, for predicting and plotting objects of class \dQuote{\code{niqr}}.
+\code{\link{niqr}}, for model fitting; \code{\link{testfit.niqr}}, for goodness of fit test; \code{\link{predict.niqr}} and \code{\link{plot.niqr}}, for predicting and plotting objects of class \dQuote{\code{niqr}}.
 }
 \examples{
 

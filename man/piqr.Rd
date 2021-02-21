@@ -94,12 +94,6 @@ An object of class \dQuote{\code{piqr}}, a list containing the following items:
 \item{seqS}{a list containg each matrix s for each value of lambda.}
 \item{internal}{a list containing some initial object.}
 }
-\references{
-Frumento, P., and Bottai, M. (2016). \emph{Parametric modeling of quantile regression coefficient functions}.
-Biometrics, doi: 10.1111/biom.12410.
-
-Friedman, J., Hastie, T. and Tibshirani, R. (2008). \emph{Regularization Paths for Generalized Linear Models via Coordinate Descent}. Journal of Statistical Software, Vol. 33(1), 1-22 Feb 2010.
-}
 \author{
 Gianluca Sottile \email{gianluca.sottile@unipa.it}
 }
@@ -130,6 +124,13 @@ Gianluca Sottile \email{gianluca.sottile@unipa.it}
 for summary, plotting, and prediction.
 \code{\link{gof.piqr}} to select the best value of the tuning parameter though AIC, BIC, GIC, GCV criteria.
 }
+\references{
+Sottile G, Frumento P, Chiodi M, Bottai M. (2020). \emph{A penalized approach to covariate selection through quantile regression coefficient models}. Statistical Modelling, 20(4), pp 369-385. doi:10.1177/1471082X19825523.
+
+Frumento, P., and Bottai, M. (2016). \emph{Parametric modeling of quantile regression coefficient functions}. Biometrics, 72(1), pp 74-84, doi:10.1111/biom.12410.
+
+Friedman, J., Hastie, T. and Tibshirani, R. (2008). \emph{Regularization Paths for Generalized Linear Models via Coordinate Descent}. Journal of Statistical Software, Vol. 33(1), pp 1-22 Feb 2010.
+}
 \examples{
 
   ##### Using simulated data in all examples
@@ -153,8 +154,8 @@ for summary, plotting, and prediction.
   best <- gof.piqr(obj, method="AIC", plot=FALSE)
   best2 <- gof.piqr(obj, method="BIC", plot=FALSE)
 
-  summary(obj, best$minLambda)
-  summary(obj, best2$minLambda)
+  summary(obj, best$posMinLambda)
+  summary(obj, best2$posMinLambda)
 
   \dontrun{
   ##### other examples
@@ -182,9 +183,9 @@ for summary, plotting, and prediction.
   m1 <- piqr(y ~ X, formula.p = ~ slp(p, k))
   best1 <- gof.piqr(m1, method="AIC", plot=FALSE)
   best2 <- gof.piqr(m1, method="BIC", plot=FALSE)
-  summary(m1, best1$minLambda)
-  summary(m1, best2$minLambda)
-  par(mfrow = c(2,2)); plot(m1, xvar="norm"); plot(m1, xvar="lambda");
+  summary(m1, best1$posMinLambda)
+  summary(m1, best2$posMinLambda)
+  par(mfrow = c(1,3)); plot(m1, xvar="lambda");
                        plot(m1, xvar="objective"); plot(m1, xvar="grad")
 
   set.seed(1234)
@@ -215,10 +216,10 @@ for summary, plotting, and prediction.
   m2 <- piqr(y ~ X, formula.p = ~ qnorm(p) + p + I(log(p)) + I(log(1-p)), s=s)
   best1 <- gof.piqr(m2, method="AIC", plot=FALSE)
   best2 <- gof.piqr(m2, method="BIC", plot=FALSE)
-  summary(m2, best1$minLambda)
-  summary(m2, best2$minLambda)
-  par(mfrow = c(2,2)); plot(m1, xvar="norm"); plot(m1, xvar="lambda");
-                       plot(m1, xvar="objective"); plot(m1, xvar="grad")
+  summary(m2, best1$posMinLambda)
+  summary(m2, best2$posMinLambda)
+  par(mfrow = c(1,3)); plot(m2, xvar="lambda");
+                       plot(m2, xvar="objective"); plot(m2, xvar="grad")
   }
   # see the documentation for 'summary.piqr', and 'plot.piqr'
 }
