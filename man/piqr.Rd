@@ -111,7 +111,7 @@ Gianluca Sottile \email{gianluca.sottile@unipa.it}
 
   The intercept can be excluded from \code{formula}, e.g.,
   \code{iqr(y ~ -1 + x)}. This, however, implies that when \code{x = 0},
-  \code{y} is always {0}. See example 5 in \sQuote{Examples}.
+  \code{y} is always \code{0}. See example 5 in \sQuote{Examples}.
   The intercept can also be removed from \code{formula.p}.
   This is recommended if the data are bounded. For example, for strictly positive data,
   use \code{iqr(y ~ 1, formula.p = -1 + slp(p,3))} to force the smallest quantile

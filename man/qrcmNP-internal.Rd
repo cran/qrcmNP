@@ -1,5 +1,45 @@
 \name{internals}
 \alias{internals}
+
+\alias{Q}
+\alias{funQ1}
+\alias{check.fun}
+\alias{boot}
+\alias{predBeta}
+\alias{grad3}
+\alias{grad2}
+\alias{num.int}
+\alias{integr}
+\alias{bisec}
+\alias{Bfun}
+\alias{bfun}
+\alias{funGrad}
+\alias{Fun}
+\alias{armijo}
+\alias{start.theta.niqr}
+
+\alias{piqr.internal}
+\alias{check.in.2}
+\alias{check.out.2}
+\alias{piqr.newton}
+\alias{piqr.ee}
+\alias{pciqr.ee}
+\alias{pctiqr.ee}
+\alias{plotCoef}
+\alias{nonzeroCoef}
+\alias{cov.theta.2}
+\alias{plotPiqr2}
+\alias{divide.et.impera.2}
+
+\alias{print.niqr}
+\alias{print.summary.niqr}
+\alias{print.piqr}
+\alias{print.summary.piqr}
+\alias{terms.piqr}
+\alias{coef.piqr}
+\alias{model.matrix.piqr}
+\alias{nobs.piqr}
+
 \title{Internal Functions}
 \description{
 Functions for internal use only, or not yet documented.
@@ -25,7 +65,7 @@ funGrad(fun, fun2, x, y, X, i = FALSE, p.star.y, xx = NULL, dx = NULL, npp = NUL
         h1 = 0.01, method = c("1", "2", "3"), fun_prime_theta=NULL, fun_prime_beta=NULL)
 Fun(fun, fun2, x, y, X, q, n, p0, npp)
 armijo(x0, d, dtg, t0, f0, fun, fun2, alpha, beta, X, y, xx, dx, p0, h, n, npp, q)
-start.theta.niqr <- function(fun, x0, X, y, control=list())
+start.theta.niqr(fun, fun2, x0, X, y, control=list())
 
 piqr.internal(mf, cl, formula.p, tol=1e-6, maxit=100, s,
               segno=1, lambda=0, check=FALSE, A, st.theta=FALSE, theta0)
@@ -45,7 +85,7 @@ plotCoef(beta, norm, lambda, df, dev, grad, label=FALSE,
 nonzeroCoef(beta, bystep=FALSE)
 cov.theta.2(theta, y,z,d,X,Xw, weights, bfun,
             p.star.y, p.star.z, type, s, segno=1, lambda=0)
-plot.piqr2(x, lambda, conf.int=TRUE, polygon=TRUE, which=NULL, ask=TRUE, ...)
+plotPiqr2(x, lambda, conf.int=TRUE, polygon=TRUE, which=NULL, ask=TRUE, ...)
 divide.et.impera.2(fit, V, bfun, s, type, tol, maxit, safeit, eps0, segno = 1, lambda = 0)
 
 \method{print}{niqr}(x, digits=max(3L, getOption("digits") - 3L), \ldots)

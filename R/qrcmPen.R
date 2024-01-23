@@ -1176,11 +1176,11 @@ plot.piqr <- function(x, xvar=c("lambda", "objective", "grad", "beta"), pos.lamb
 
     plotCoef(beta, lambda=lambda, df=x$df, dev=x$obj.function, grad=x$dl, label=label, xvar=xvar, ...)
   }else{
-    plot.piqr2(x, lambda=l, which=which, ask=ask, polygon=polygon, ...)
+    plotPiqr2(x, lambda=l, which=which, ask=ask, polygon=polygon, ...)
   }
 }
 
-plot.piqr2 <- function(x, lambda, conf.int=TRUE, polygon=TRUE, which=NULL, ask=TRUE, ...){
+plotPiqr2 <- function(x, lambda, conf.int=TRUE, polygon=TRUE, which=NULL, ask=TRUE, ...){
 
   plot.piqr.int <- function(p,u,j,conf.int,L){
     beta <- u[[j]]$beta

@@ -51,7 +51,7 @@ boot <- function(fun, fun2, X, y, start_theta, true_theta, p, seed, boot=FALSE, 
     }
 
     o <- try(niqr(fun, fun2, start_theta, X=Xb, y=yb, control=control), silent=TRUE)
-    if(class(o) != "try-error"){
+    if(!inherits(o, "try-error")){
       theta[, i] <- o$x
       seTheta[, i] <- o$se
       lowTheta[, i] <- o$x - 1.96*o$se

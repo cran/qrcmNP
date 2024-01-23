@@ -12,8 +12,8 @@ This package also implements a penalized Frumento and Bottai's (2015) method for
 \tabular{ll}{
 Package: \tab qrcmNP\cr
 Type: \tab Package\cr
-Version: \tab 1.0.0\cr
-Date: \tab 2018-11-09\cr
+Version: \tab 0.2.1\cr
+Date: \tab 2024-01-22\cr
 License: \tab GPL-2\cr
 }
 The function \code{\link{niqr}} permits specifying nonlinear basis for each variables. The function \code{\link{testfit.niqr}} permits to do goodness of fit.
