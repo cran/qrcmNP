@@ -36,11 +36,11 @@ Predictions from an object of class \dQuote{\code{piqr}}, after selecting the be
 \item{\ldots}{for future methods.}
 }
 \details{
-If the best lambda or one value of lambda is chosen, the function call \code{\link{predict.iqr}}.
+If the best lambda or one value of lambda is chosen, the function call \code{\link[qrcm]{predict.iqr}}.
 }
 
 \value{
-See details in \code{\link{predict.iqr}}
+See details in \code{\link[qrcm]{predict.iqr}}
 }
 \author{
 Gianluca Sottile \email{gianluca.sottile@unipa.it}

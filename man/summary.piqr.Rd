@@ -32,7 +32,7 @@ Summary of an object of class \dQuote{\code{piqr}}, after selecting the best tun
 If the best lambda or one value of lambda is chosen a summary of the selected model is printed.
 }
 \value{
-See details in \code{\link{summary.iqr}}
+See details in \code{\link[qrcm]{summary.iqr}}
 }
 \author{
 Gianluca Sottile \email{gianluca.sottile@unipa.it}

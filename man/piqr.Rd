@@ -74,14 +74,14 @@ piqr(formula, formula.p = ~ slp(p, 3), weights, data, s, nlambda=100,
   Users are required to specify two formulas: \code{formula} describes the regression model,
   while \code{formula.p} identifies the 'basis' \eqn{b(p)}.
   By default, \code{formula.p = ~ slp(p, k = 3)}, a 3rd-degree shifted
-  Legendre polynomial (see \code{\link{slp}}). Any user-defined function \eqn{b(p, \ldots)}
+  Legendre polynomial (see \code{\link[qrcm]{slp}}). Any user-defined function \eqn{b(p, \ldots)}
   can be used, see \sQuote{Examples}.
 
   Estimation of penalized \eqn{\theta} is carried out by minimizing a penalized integrated loss function,
   corresponding to the integral, over \eqn{p}, of the penalized loss function of standard quantile regression. This
   motivates the acronym \code{piqr} (penalized integrated quantile regression).
 
-  See details in \code{\link{iqr}}
+  See details in \code{\link[qrcm]{iqr}}
 }
 \value{
 An object of class \dQuote{\code{piqr}}, a list containing the following items:
@@ -106,8 +106,8 @@ Gianluca Sottile \email{gianluca.sottile@unipa.it}
   estimated support of the data, defined by quantiles of order 0 and 1. If null or negative \code{PDF}
   values occur for a relatively large proportion of data, the model is probably misspecified or ill-defined.
   If the model is correct, the fitted \code{CDF} should approximately follow a Uniform(0,1) distribution.
-  This idea is used to implement a goodness-of-fit test, see \code{\link{summary.iqr}}
-  and \code{\link{test.fit}}.
+  This idea is used to implement a goodness-of-fit test, see \code{\link[qrcm]{summary.iqr}}
+  and \code{\link[qrcm]{test.fit}}.
 
   The intercept can be excluded from \code{formula}, e.g.,
   \code{iqr(y ~ -1 + x)}. This, however, implies that when \code{x = 0},

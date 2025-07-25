@@ -1,3 +1,10 @@
+qrcm 0.2.2
+=============
+
+* Include the Authors@R field in the description.
+* Minor fixes to the linking targets problem.
+
+
 qrcm 0.2.0
 =============
 
