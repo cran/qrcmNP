@@ -1,4 +1,5 @@
 bibentry(bibtype = "Article",
+  header       = "To cite the penalized estimator (piqr) in publications use:",
   title        = "A penalized approach to covariate selection through quantile regression coefficient models",
   author       = c(person(given = "Gianluca", family = "Sottile"),
                    person(given = "Paolo", family = "Frumento"),
@@ -8,7 +9,19 @@ bibentry(bibtype = "Article",
   year         = "2020",
   volume       = "20",
   number       = "4",
-  pages        = "369-385",
-  doi          = "10.1177/1471082X19825523",
-  header       = "To cite qrcmNP in publications use:"
+  pages        = "369--385",
+  doi          = "10.1177/1471082X19825523"
+)
+
+bibentry(bibtype = "Article",
+  header       = "To cite nonlinear parametric quantile models (niqr) in publications use:",
+  title        = "Nonlinear parametric quantile models",
+  author       = c(person(given = "Matteo", family = "Bottai"),
+                   person(given = "Giovanna", family = "Cilluffo")),
+  journal      = "Statistical Methods in Medical Research",
+  year         = "2020",
+  volume       = "29",
+  number       = "12",
+  pages        = "3757--3769",
+  doi          = "10.1177/0962280220941159"
 )

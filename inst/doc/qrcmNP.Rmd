@@ -1,0 +1,275 @@
+---
+title: "Penalized and nonlinear quantile regression coefficients modeling with qrcmNP"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Penalized and nonlinear quantile regression coefficients modeling with qrcmNP}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 7, fig.height = 4)
+```
+
+```{r setup}
+library(qrcmNP)
+```
+
+## 1. Quantile regression coefficients modeling
+
+In quantile regression the conditional quantile function of a response $y$
+given covariates $x$ is $Q(p \mid x) = x^\top\beta(p)$, $0 < p < 1$. Standard
+quantile regression estimates one quantile at a time; quantile regression
+coefficients modeling (QRCM, Frumento and Bottai, 2016) instead describes the
+coefficients as parametric functions of $p$,
+$$\beta(p \mid \theta) = \theta\, b(p),$$
+where $b(p) = (b_1(p), \dots, b_k(p))^\top$ are known functions and $\theta$ is a
+$q \times k$ matrix of parameters. All quantiles are estimated simultaneously by
+minimizing the *integrated loss*
+$$L(\theta) = \int_0^1 \sum_{i=1}^n \rho_p\{y_i - x_i^\top\theta\, b(p)\}\,dp,$$
+which is a smooth convex function of $\theta$ whose gradient and Hessian are
+available in closed form. The package 'qrcm' implements this estimator
+(`qrcm::iqr()`); 'qrcmNP' adds penalized estimation for covariate selection
+(`piqr()`) and nonlinear parametric models (`niqr()`).
+
+## 2. Penalized QRCM: `piqr()`
+
+Sottile et al. (2020) proposed to select covariates by minimizing
+$$L(\theta) + \lambda\, \mathrm{pen}(\theta)$$
+with standardized $x$ and $b(p)$. Since $\beta_j(p \mid \theta) \equiv 0$ if and
+only if $\theta_{j1} = \dots = \theta_{jk} = 0$, selection uses the information on
+all quantiles at once. Two penalties are available:
+
+* `penalty = "lasso"` (default): $\lambda\sum_{j,h} w_j|\theta_{jh}|$, the penalty
+  of Sottile et al. (2020, eq. 3.4);
+* `penalty = "group"`: $\lambda\sum_j w_j\sqrt{k_j}\,\|\theta_{j\cdot}\|_2$, a group
+  lasso that keeps or removes each covariate as a whole.
+
+The weights $w_j$ are set by `penalty.factor` (default 1; 0 leaves a covariate
+unpenalized). The intercept is never penalized.
+
+### A simulated example
+
+We simulate data from the model
+$\beta_0(p) = 1 + \Phi^{-1}(p)$, $\beta_1(p) = 1 + 2p$, $\beta_2(p) = 1$,
+with three irrelevant covariates.
+
+```{r data}
+set.seed(1234)
+n <- 400
+d <- data.frame(x1 = rexp(n), x2 = runif(n, 0, 5), x3 = rnorm(n),
+                x4 = runif(n), x5 = rbinom(n, 1, 0.5))
+u <- runif(n)
+d$y <- 1 + qnorm(u) + (1 + 2 * u) * d$x1 + d$x2
+```
+
+The coefficient functions are modelled by shifted Legendre polynomials of
+degree 2 (`slp(p, 2)`, plus a constant). `piqr()` computes the whole path of
+solutions, starting from $\lambda_{max}$ (only the intercept in the model):
+
+```{r piqr}
+fit <- piqr(y ~ x1 + x2 + x3 + x4 + x5, formula.p = ~ slp(p, 2), data = d,
+            nlambda = 40)
+fit
+```
+
+```{r path, fig.height = 4}
+oldpar <- par(mfrow = c(1, 2))
+plot(fit, xvar = "lambda")
+plot(fit, xvar = "grad")
+par(oldpar)
+```
+
+### Selecting $\lambda$
+
+`gof.piqr()` computes the AIC and BIC of Sottile et al. (2020, Section 3.1),
+$\log L(\hat\theta_\lambda) + c_n\,df(\lambda)/n$, with $c_n = 2$ (AIC) or
+$c_n = \log n$ (BIC):
+
+```{r gof, fig.height = 4}
+best <- gof.piqr(fit, method = "BIC")
+best
+```
+
+Cross-validation of the integrated loss is also available:
+
+```{r cv, fig.height = 4}
+cv <- cv_piqr(y ~ x1 + x2 + x3 + x4 + x5, formula.p = ~ slp(p, 2), data = d,
+              nfolds = 5, nlambda = 40)
+cv
+plot(cv)
+```
+
+### Group lasso
+
+```{r group}
+fitg <- piqr(y ~ x1 + x2 + x3 + x4 + x5, formula.p = ~ slp(p, 2), data = d,
+             nlambda = 40, penalty = "group")
+bestg <- gof.piqr(fitg, plot = FALSE)
+bestg
+```
+
+### Inference after selection
+
+As suggested by Sottile et al. (2020, Section 3.2), the penalized estimator is
+used to select the covariates, and the selected model is re-estimated without
+penalty. `refit_piqr()` does this with `qrcm::iqr()`, which provides standard
+errors, Wald tests and goodness-of-fit diagnostics (the standard errors do not
+account for the selection step):
+
+```{r refit}
+m <- refit_piqr(fit, pos.lambda = best$posMinLambda)
+summary(m)
+summary(m, p = c(0.1, 0.5, 0.9))
+```
+
+```{r refit-plot, fig.height = 3.5}
+oldpar <- par(mfrow = c(1, 3))
+plot(m, which = 1:3, ask = FALSE)
+par(oldpar)
+```
+
+### Censored data
+
+Right-censored and left-truncated responses are specified with
+`survival::Surv()`, as in `qrcm::iqr()`:
+
+```{r censored}
+cens <- rexp(n, 0.05)
+d$time <- pmin(d$y + 5, cens)
+d$status <- as.numeric(d$y + 5 <= cens)
+fitc <- piqr(survival::Surv(time, status) ~ x1 + x2 + x3 + x4 + x5,
+             formula.p = ~ slp(p, 2), data = d, nlambda = 20)
+gof.piqr(fitc, plot = FALSE)
+```
+
+### Algorithm
+
+For each value of $\lambda$, `piqr()` uses a *proximal Newton* method: the
+integrated loss is replaced by its second-order expansion (its gradient and
+Hessian are available in closed form), and the resulting penalized quadratic
+problem is solved by coordinate descent (soft-thresholding for the lasso, group
+soft-thresholding for the group lasso) followed by an exact "polishing" step on
+the selected coefficients; a backtracking line search guarantees a decrease of
+the penalized objective. Along the path the algorithm uses warm starts, the
+sequential strong rules of Tibshirani et al. (2012) and a final check of the
+Karush-Kuhn-Tucker conditions. The conditional CDF of each observation is found
+by bisection on a grid of 1023 values of $p$, denser in the tails, on which
+$b(p)$ and its integrals are pre-computed (as in 'qrcm'). The algorithm of
+'qrcmNP' 0.2.x is available with `method = "legacy"`.
+
+## 3. Nonlinear parametric quantile models: `niqr()`
+
+Bottai and Cilluffo (2020) considered parametric models
+$Q(p \mid x, \theta)$ of *any* functional form, estimated by minimizing
+$$L_n(\theta) = \frac1n\sum_{i=1}^n\int_0^1 \rho_p\{y_i - Q(p \mid x_i, \theta)\}\,dp.$$
+In `niqr()`, the model is specified by two functions:
+
+* `fun(theta, p)` returns the matrix of coefficient functions
+  $\beta(p \mid \theta)$ (one row for each value of `p`);
+* `fun2(beta, X)` (optional) combines them with the covariates, row by row; by
+  default $Q(p \mid x) = x^\top\beta(p \mid \theta)$.
+
+### Nonlinear in the parameters
+
+Following Bottai and Cilluffo (2020, Section 6), the intercept can be modelled
+as a transformation of a normal quantile function, $z = \Phi^{-1}(p)$, with
+polynomial effects of the covariates. Here the data have heavier tails than the
+normal distribution:
+
+```{r niqr1}
+set.seed(1)
+n <- 400
+x <- runif(n)
+z <- qnorm(runif(n))
+y <- 2 + 0.5 * z + 0.1 * z^3 + (1 + pnorm(z)) * x
+dn <- data.frame(y, x)
+
+# Model 1: normal intercept
+m1 <- niqr(y ~ x, data = dn, x0 = c(2, 0, 1, 0),
+           fun = function(theta, p) cbind(theta[1] + exp(theta[2]) * qnorm(p),
+                                          theta[3] + theta[4] * p))
+# Model 2: a cubic term accounts for the kurtosis (exp() keeps it positive,
+# so that the quantile function is increasing in p)
+m2 <- niqr(y ~ x, data = dn, x0 = c(2, 0, -2, 1, 0),
+           fun = function(theta, p) {
+             z <- qnorm(p)
+             cbind(theta[1] + exp(theta[2]) * z + exp(theta[3]) * z^3, theta[4] + theta[5] * p)
+           })
+gof.niqr(m1, m2)
+summary(m2)
+```
+
+The log-criteria $\mathrm{AIC}^* = \log L_n + k/n$ and
+$\mathrm{BIC}^* = \log L_n + k\log(n)/(2n)$ (Bottai and Cilluffo, 2020, Section 3)
+are reported as `AIC.log` and `BIC.log`; here AIC* prefers the second model,
+while BIC* slightly prefers the simpler one. The goodness-of-fit test below is
+more conclusive. The estimated coefficient functions are plotted with
+pointwise 95% confidence bands:
+
+```{r niqr-plot, fig.height = 3.5}
+oldpar <- par(mfrow = c(1, 3))
+plot(m2, which = 1:3, ask = FALSE)
+par(oldpar)
+```
+
+Under a correctly specified model the fitted values of the conditional CDF are
+uniformly distributed; `test.fit()` computes the Kolmogorov-Smirnov and
+Cramer-von Mises statistics, with bootstrap p-values. The normal model is
+rejected, the model with heavy tails is not:
+
+```{r testfit}
+test.fit(m1, R = 30)
+test.fit(m2, R = 30)
+```
+
+### Nonlinear in the covariates: a dose-response model
+
+The Hill quantile function (Bottai and Cilluffo, 2020, eq. 2)
+$$Q(p \mid \text{dose}) = \beta_0(p) + \frac{\beta_1(p) - \beta_0(p)}{1 + 10^{\beta_3(p) - \log_{10}\text{dose}}}$$
+is nonlinear in both the covariate and the parameters. Here the minimal
+response $\beta_0(p)$ is normal, and the maximal response and the (log) dose
+at half the maximal effect are constant:
+
+```{r hill}
+set.seed(2)
+dose <- rep(10^seq(-2, 2, length.out = 20), each = 15)
+fun.h <- function(theta, p) cbind(theta[1] + exp(theta[2]) * qnorm(p), theta[3], theta[4])
+fun2.h <- function(beta, X) beta[, 1] + (beta[, 2] - beta[, 1]) / (1 + 10^(beta[, 3] - log10(X[, 2])))
+yh <- fun2.h(fun.h(c(1, log(0.5), 10, 0), runif(length(dose))), cbind(1, dose))
+mh <- niqr(yh ~ dose, fun = fun.h, fun2 = fun2.h, x0 = c(0, 0, 5, 0.5))
+summary(mh)
+```
+
+```{r hill-plot, fig.height = 4}
+dd <- data.frame(dose = 10^seq(-2, 2, length.out = 100))
+qf <- predict(mh, type = "QF", p = c(0.05, 0.5, 0.95), newdata = dd, se = FALSE)
+plot(dose, yh, log = "x", pch = 20, col = "gray", xlab = "dose", ylab = "response")
+matlines(dd$dose, qf, lty = c(2, 1, 2), col = 1)
+```
+
+### Inference
+
+The covariance matrix of $\hat\theta$ is estimated by the sandwich formula
+$H^{-1}\Omega H^{-1}/n$ (Bottai and Cilluffo, 2020, Theorem 3), where $H$ is the
+Hessian of the expected loss,
+$H = n^{-1}\sum_i \partial_\theta Q(p_i^*)\,\partial_\theta Q(p_i^*)^\top/Q'(p_i^*)$,
+$p_i^* = F(y_i \mid x_i, \hat\theta)$. With repeated measures, the argument
+`cluster` gives cluster-robust standard errors; the (cluster) bootstrap used in
+the paper is available with `control = niqr.control(se = "boot")`.
+
+## References
+
+* Bottai, M. and Cilluffo, G. (2020). Nonlinear parametric quantile models.
+  *Statistical Methods in Medical Research*, 29(12), 3757-3769.
+* Frumento, P. and Bottai, M. (2016). Parametric modeling of quantile regression
+  coefficient functions. *Biometrics*, 72(1), 74-84.
+* Frumento, P. and Bottai, M. (2017). Parametric modeling of quantile regression
+  coefficient functions with censored and truncated data. *Biometrics*, 73(4),
+  1179-1188.
+* Sottile, G., Frumento, P., Chiodi, M. and Bottai, M. (2020). A penalized
+  approach to covariate selection through quantile regression coefficient models.
+  *Statistical Modelling*, 20(4), 369-385.
+* Tibshirani, R., Bien, J., Friedman, J., Hastie, T., Simon, N., Taylor, J. and
+  Tibshirani, R. J. (2012). Strong rules for discarding predictors in lasso-type
+  problems. *Journal of the Royal Statistical Society: Series B*, 74(2), 245-266.

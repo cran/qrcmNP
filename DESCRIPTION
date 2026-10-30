@@ -2,18 +2,42 @@ Package: qrcmNP
 Type: Package
 Title: Nonlinear and Penalized Quantile Regression Coefficients
         Modeling
-Version: 0.2.2
-Authors@R: c(person("Gianluca", "Sottile", role=c("aut", "cre"), email = "gianluca.sottile@unipa.it"),
-	     person("Paolo", "Frumento", role=c("aut", "ctb")))
-Maintainer: Gianluca Sottile <gianluca.sottile@unipa.it>
-Description: Nonlinear and Penalized parametric modeling of quantile regression coefficient functions. Sottile G, Frumento P, Chiodi M and Bottai M (2020) <doi:10.1177/1471082X19825523>.
-Imports: stats, graphics, grDevices, utils
-Depends: survival (>= 2.4.1), qrcm (>= 3.0)
+Version: 1.0.0
+Authors@R: c(
+    person("Gianluca", "Sottile", email = "gianluca.sottile@unipa.it",
+           role = c("aut", "cre"), comment = c(ORCID = "0000-0001-9347-7251")),
+    person("Paolo", "Frumento", role = c("aut", "cph"),
+           comment = "author of parts of the code adapted from 'qrcm'"))
+Description: Penalized and nonlinear parametric modeling of quantile
+    regression coefficient functions. The penalized integrated loss
+    minimization estimator (lasso and group lasso penalties) of Sottile,
+    Frumento, Chiodi and Bottai (2020) <doi:10.1177/1471082X19825523>
+    performs covariate selection using the information on all quantiles
+    simultaneously. Nonlinear parametric quantile models, in which the
+    conditional quantile function can be a nonlinear function of the
+    parameters, of the covariates or both, are estimated by integrated
+    loss minimization as in Bottai and Cilluffo (2020)
+    <doi:10.1177/0962280220941159>. Both approaches extend the quantile
+    regression coefficients modeling framework of Frumento and Bottai
+    (2016) <doi:10.1111/biom.12410> implemented in 'qrcm'.
 License: GPL-2
-RoxygenNote: 7.1.1
+URL: https://github.com/gianluca-sottile/qrcmNP
+BugReports: https://github.com/gianluca-sottile/qrcmNP/issues
+Depends: R (>= 4.1.0)
+Imports: graphics, grDevices, qrcm (>= 3.0), stats, survival (>= 2.41),
+        utils
+Suggests: knitr, rmarkdown, testthat (>= 3.0.0)
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+Encoding: UTF-8
+Language: en-US
+Config/roxygen2/version: 8.1.1
 NeedsCompilation: no
-Packaged: 2025-07-25 10:44:01 UTC; gianlucasottile
+Packaged: 2026-10-29 13:49:45 UTC; gianlucasottile
+Author: Gianluca Sottile [aut, cre] (ORCID:
+    <https://orcid.org/0000-0001-9347-7251>),
+  Paolo Frumento [aut, cph] (author of parts of the code adapted from
+    'qrcm')
+Maintainer: Gianluca Sottile <gianluca.sottile@unipa.it>
 Repository: CRAN
-Date/Publication: 2025-07-25 11:00:02 UTC
-Author: Gianluca Sottile [aut, cre],
-  Paolo Frumento [aut, ctb]
+Date/Publication: 2026-10-30 09:50:07 UTC
